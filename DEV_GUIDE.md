@@ -29,7 +29,7 @@ Work top to bottom within a phase. Don't skip ahead to the next phase's tests un
 
 ## Roadmap (spec §19)
 
-- [x] **Phase 1 — Project Setup**: framework, repo, environment, database connection *(expanded below)*
+- [ ] **Phase 1 — Project Setup**: framework, repo, environment, database connection *(expanded below)*
 - [ ] **Phase 2 — Database Design**: ERD, migrations, constraints, relationships, seeders
 - [ ] **Phase 3 — Authentication**: login, password hashing, protected routes, current user
 - [ ] **Phase 4 — Core Resources**: Programs, Students, Courses, Academic Terms (CRUD + validation)
@@ -46,17 +46,30 @@ Work top to bottom within a phase. Don't skip ahead to the next phase's tests un
 
 **Checkpoint (spec §19):** API server starts and database connection succeeds.
 
-### 1.1 Confirm the base app boots
+### 1.1 Set up your local environment
 
-Already true in this repo (Laravel 13 skeleton, `.env` configured with `DB_CONNECTION=sqlite`). Verify it yourself:
+`.env` is gitignored (never committed — see spec §13), so a fresh clone won't have one. Create yours from the template and generate an app key:
+
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+The `.env.example` default already points `DB_CONNECTION` at `sqlite`. SQLite needs an actual database file to exist before anything can connect to it — Laravel won't create it for you:
+
+```bash
+touch database/database.sqlite   # PowerShell: New-Item -ItemType File database/database.sqlite
+```
+
+### 1.2 Confirm the base app boots
 
 ```bash
 php artisan about
 ```
 
-Confirm `Environment`, `Database` (sqlite, file present at `database/database.sqlite` — create it if missing with `touch database/database.sqlite` or the PowerShell equivalent), and no errors.
+Confirm `Environment` is `local`, `Database` shows `sqlite` connected, and there are no errors.
 
-### 1.2 Install Sanctum (auth) and Scramble (API docs)
+### 1.3 Install Sanctum (auth) and Scramble (API docs)
 
 ```bash
 composer require laravel/sanctum dedoc/scramble
@@ -67,7 +80,7 @@ php artisan install:api
 
 Scramble needs no publish step by default; once installed, visiting `/docs/api` renders OpenAPI docs generated from your routes/FormRequests/Resources as you build them in later phases.
 
-### 1.3 Run the initial migration
+### 1.4 Run the initial migration
 
 ```bash
 php artisan migrate
@@ -75,7 +88,7 @@ php artisan migrate
 
 This creates `users`, `cache`, `jobs`, and Sanctum's `personal_access_tokens` tables. Confirm no errors.
 
-### 1.4 Configure PHPUnit for a clean, fast test DB
+### 1.5 Configure PHPUnit for a clean, fast test DB
 
 Laravel's default `phpunit.xml` should already set the testing environment to use an in-memory SQLite database (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`) — check this in `phpunit.xml`. This matters for TDD: every test run gets a fresh, isolated database, and in-memory means it's fast enough to run constantly.
 
@@ -85,7 +98,7 @@ Verify the test suite currently runs (it'll be nearly empty, that's fine):
 php artisan test
 ```
 
-### 1.5 Write your first test — prove the harness works
+### 1.6 Write your first test — prove the harness works
 
 Since we're doing full TDD from here on, Phase 1's own checkpoint should itself be backed by a test. Create a minimal smoke test:
 
@@ -107,14 +120,15 @@ Run it — it should currently **fail (red)** if `/api/user` doesn't exist yet o
 
 ### Phase 1 checklist
 
-- [x] `php artisan about` shows no errors, SQLite connected
-- [x] Sanctum installed, `routes/api.php` exists with `auth:sanctum` group
-- [x] Scramble installed, `/docs/api` renders (even if empty)
-- [x] `php artisan migrate` succeeds
-- [x] `phpunit.xml` confirmed to use in-memory SQLite for tests
-- [x] `ApplicationBootTest` written and passing
-- [x] `php artisan serve` starts without error (confirmed via `php artisan about`, which boots the full framework)
+- [ ] `.env` created from `.env.example`, app key generated, SQLite file created
+- [ ] `php artisan about` shows no errors, SQLite connected
+- [ ] Sanctum installed, `routes/api.php` exists with `auth:sanctum` group
+- [ ] Scramble installed, `/docs/api` renders (even if empty)
+- [ ] `php artisan migrate` succeeds
+- [ ] `phpunit.xml` confirmed to use in-memory SQLite for tests
+- [ ] `ApplicationBootTest` written and passing
+- [ ] `php artisan serve` starts without error
 
-**Phase 1 complete.** Note: `.env` and `database/database.sqlite` are gitignored (the latter via `database/.gitignore`) and were created locally — you'll need to repeat steps 1.1–1.3 (`cp .env.example .env`, `php artisan key:generate`, create the SQLite file, `php artisan migrate`) on any machine that clones this repo fresh, including your own if you reclone. This is expected and matches spec §14 (reproducibility via `.env.example`, not a committed `.env`).
+Note: `.env` and `database/database.sqlite` are gitignored (the latter via `database/.gitignore`) — they're never committed, so step 1.1 has to be repeated on every fresh clone (including this one, and any other machine you set this project up on). This is expected and matches spec §14 (reproducibility via `.env.example`, not a committed `.env`).
 
-Next: **Phase 2 — Database Design** — ERD approach, migration order, and TDD sequence for constraints (unique `student_number`, duplicate-enrollment prevention, etc.). Ask when you're ready to start it.
+Work through 1.1–1.6 above yourself, checking off each item as you verify it. Come back once the full checklist is checked and I'll expand **Phase 2 — Database Design** — ERD approach, migration order, and TDD sequence for constraints (unique `student_number`, duplicate-enrollment prevention, etc.).
