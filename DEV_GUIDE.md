@@ -229,16 +229,16 @@ Spec §20.3 requires seeders/fixtures/factories that can (re)populate a working 
 
 ### Phase 2 checklist
 
-- [ ] ERD drawn, covering all 7 entities + `users`, saved somewhere in the repo (spec §20.5)
-- [ ] All 7 migrations created in dependency order and run clean
-- [ ] `role` column added to `users`
+- [x] ERD drawn, covering all 7 entities + `users`, saved somewhere in the repo (spec §20.5)
+- [x] All 7 migrations created in dependency order and run clean
+- [x] `role` column added to `users`
 - [ ] `student_number` unique constraint — test written and passing
 - [ ] Duplicate-enrollment prevention constraint — test written and passing
-- [ ] `course_code` unique constraint in place
-- [ ] All foreign keys constrained (`->constrained()` / `->foreignId()`), not just plain columns
-- [ ] All relationships from §2.3 defined and covered by at least one passing test
-- [ ] Factories exist for all 7 entities
-- [ ] `DatabaseSeeder` populates a working, dependency-ordered dataset
-- [ ] `php artisan migrate:fresh --seed` runs clean from an empty database
+- [x] `course_code` unique constraint in place
+- [x] All foreign keys constrained (`->constrained()` / `->foreignId()`), not just plain columns
+- [x] All relationships from §2.3 defined and covered by at least one passing test
+- [x] Factories exist for all 7 entities
+- [x] `DatabaseSeeder` populates a working, dependency-ordered dataset
+- [x] `php artisan migrate:fresh --seed` runs clean from an empty database
 
 Work through 2.1–2.4 yourself, test-first each entity. Come back once the full checklist is checked and I'll expand **Phase 3 — Authentication** — login/token issuance, password hashing, the `auth:sanctum` middleware you already have from Phase 1, and the TDD sequence for a protected "current user" endpoint.
