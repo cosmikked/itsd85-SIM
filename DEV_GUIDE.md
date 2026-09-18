@@ -29,8 +29,8 @@ Work top to bottom within a phase. Don't skip ahead to the next phase's tests un
 
 ## Roadmap (spec §19)
 
-- [ ] **Phase 1 — Project Setup**: framework, repo, environment, database connection *(expanded below)*
-- [ ] **Phase 2 — Database Design**: ERD, migrations, constraints, relationships, seeders
+- [x] **Phase 1 — Project Setup**: framework, repo, environment, database connection
+- [ ] **Phase 2 — Database Design**: ERD, migrations, constraints, relationships, seeders *(expanded below)*
 - [ ] **Phase 3 — Authentication**: login, password hashing, protected routes, current user
 - [ ] **Phase 4 — Core Resources**: Programs, Students, Courses, Academic Terms (CRUD + validation)
 - [ ] **Phase 5 — Academic Transactions**: Course Offerings, Enrollments, Grades, Academic Record
@@ -42,7 +42,7 @@ Work top to bottom within a phase. Don't skip ahead to the next phase's tests un
 
 ---
 
-## Phase 1 — Project Setup *(expanded)*
+## Phase 1 — Project Setup *(complete)*
 
 **Checkpoint (spec §19):** API server starts and database connection succeeds.
 
@@ -120,15 +120,125 @@ Run it — it should currently **fail (red)** if `/api/user` doesn't exist yet o
 
 ### Phase 1 checklist
 
-- [ ] `.env` created from `.env.example`, app key generated, SQLite file created
-- [ ] `php artisan about` shows no errors, SQLite connected
-- [ ] Sanctum installed, `routes/api.php` exists with `auth:sanctum` group
-- [ ] Scramble installed, `/docs/api` renders (even if empty)
-- [ ] `php artisan migrate` succeeds
-- [ ] `phpunit.xml` confirmed to use in-memory SQLite for tests
-- [ ] `ApplicationBootTest` written and passing
-- [ ] `php artisan serve` starts without error
+- [x] `.env` created from `.env.example`, app key generated, SQLite file created
+- [x] `php artisan about` shows no errors, SQLite connected
+- [x] Sanctum installed, `routes/api.php` exists with `auth:sanctum` group
+- [x] Scramble installed, `/docs/api` renders (even if empty)
+- [x] `php artisan migrate` succeeds
+- [x] `phpunit.xml` confirmed to use in-memory SQLite for tests
+- [x] `ApplicationBootTest` written and passing
+- [x] `php artisan serve` starts without error
 
 Note: `.env` and `database/database.sqlite` are gitignored (the latter via `database/.gitignore`) — they're never committed, so step 1.1 has to be repeated on every fresh clone (including this one, and any other machine you set this project up on). This is expected and matches spec §14 (reproducibility via `.env.example`, not a committed `.env`).
 
-Work through 1.1–1.6 above yourself, checking off each item as you verify it. Come back once the full checklist is checked and I'll expand **Phase 2 — Database Design** — ERD approach, migration order, and TDD sequence for constraints (unique `student_number`, duplicate-enrollment prevention, etc.).
+**Verified 2026-09-18:** `php artisan about` shows `Database: sqlite` connected with no errors; `laravel/sanctum` (4.3.3) and `dedoc/scramble` (0.13.43) are installed direct dependencies; `routes/api.php:6` registers `GET|HEAD api/user` behind `auth:sanctum`; `docs/api` and `docs/api.json` routes are registered by Scramble; `migrate:status` shows all 4 migrations (including `personal_access_tokens`) ran; `phpunit.xml` sets `DB_DATABASE=:memory:`; `php artisan test` passes (3/3 assertions). Phase 1 is done — commit this work when you're ready.
+
+---
+
+## Phase 2 — Database Design *(expanded)*
+
+**Checkpoint (spec §19):** Database can be recreated from project files (migrations + seeders, no manual steps beyond `php artisan migrate --seed`).
+
+This phase is almost entirely schema: migrations, Eloquent relationships, and the constraints spec §7.2 calls out by name. "TDD" here means proving the schema with tests before/alongside writing it — a migration test that fails because the table doesn't exist yet, a relationship test that fails because the method doesn't exist yet, a uniqueness test that fails because the constraint isn't there yet.
+
+### 2.1 Plan the ERD and migration order
+
+Spec §7 gives you the entities and minimum fields; §7.1 gives you the relationships. Draw the ERD from that table before writing any migration — it's a required final output (spec §20.5) and it's much easier to get the foreign-key order right on paper first.
+
+Migrations must run in dependency order (a migration can't reference a table that doesn't exist yet). Given the relationships in §7.1, the only valid order is roughly:
+
+1. `programs` — no dependencies
+2. `courses` — no dependencies
+3. `academic_terms` — no dependencies
+4. `students` — depends on `programs` (`program_id`)
+5. `course_offerings` — depends on `courses`, `academic_terms`, and `users` (`instructor_id`)
+6. `enrollments` — depends on `students`, `course_offerings`
+7. `grades` — depends on `enrollments`
+
+Laravel migration filenames are timestamp-ordered, so `make:migration` run in this sequence handles ordering for you automatically.
+
+One thing not covered by Phase 1: `course_offerings.instructor_id` references `users`, and spec §5.1/§6 ties roles to users. You'll need a way to tell instructors apart from other users before this FK is meaningful — the simplest is a `role` column on `users` (string or enum: Admin/Registrar/Instructor/Student, matching the locked-in Gates & Policies decision). Add it now via a migration; the authorization *rules* built on top of it are Phase 7's job, not this one.
+
+### 2.2 TDD sequence — work one entity at a time
+
+For each entity, in the order above:
+
+1. Write a feature/unit test first (it will fail — the migration and model don't exist yet).
+2. `php artisan make:migration create_<table>_table`, fill in the schema.
+3. `php artisan make:model <Model> -f` (the `-f` scaffolds a factory too).
+4. Define relationships on the model (`belongsTo`, `hasMany`, etc. per §7.1).
+5. Run the test — it should go green now.
+
+**Illustrative example — `programs` (first, no dependencies):**
+
+```php
+// tests/Feature/ProgramTest.php
+public function test_program_can_be_created_with_required_fields(): void
+{
+    $program = Program::factory()->create(['code' => 'BSCS']);
+
+    $this->assertDatabaseHas('programs', ['code' => 'BSCS']);
+}
+```
+
+**Illustrative example — the two constraints spec §7.2 names explicitly.** These deserve their own tests because they're the ones a naive migration is most likely to get wrong:
+
+```php
+// tests/Feature/StudentTest.php
+public function test_student_number_must_be_unique(): void
+{
+    Student::factory()->create(['student_number' => '2026-00001']);
+
+    $this->expectException(\Illuminate\Database\QueryException::class);
+    Student::factory()->create(['student_number' => '2026-00001']);
+}
+```
+
+```php
+// tests/Feature/EnrollmentTest.php
+public function test_duplicate_enrollment_in_same_course_offering_is_prevented(): void
+{
+    $offering = CourseOffering::factory()->create();
+    $student = Student::factory()->create();
+    Enrollment::factory()->create(['student_id' => $student->id, 'course_offering_id' => $offering->id]);
+
+    $this->expectException(\Illuminate\Database\QueryException::class);
+    Enrollment::factory()->create(['student_id' => $student->id, 'course_offering_id' => $offering->id]);
+}
+```
+
+Both rely on a database-level constraint (`unique()` on the migration column, or a composite `unique(['student_id', 'course_offering_id'])`), not just application-level validation — spec §7.2 says data integrity, and only the DB layer guarantees that under concurrent requests. Application-level validation (returning a clean 422 instead of a raw exception) is Phase 4/6's job.
+
+### 2.3 Relationships to wire up on the models
+
+Per spec §7.1, once the migrations exist:
+
+- `Program::students()` hasMany / `Student::program()` belongsTo
+- `Course::courseOfferings()` hasMany / `CourseOffering::course()` belongsTo
+- `AcademicTerm::courseOfferings()` hasMany / `CourseOffering::academicTerm()` belongsTo
+- `User::courseOfferings()` hasMany (as instructor) / `CourseOffering::instructor()` belongsTo
+- `Student::enrollments()` hasMany / `Enrollment::student()` belongsTo
+- `CourseOffering::enrollments()` hasMany / `Enrollment::courseOffering()` belongsTo
+- `Enrollment::grade()` hasOne / `Grade::enrollment()` belongsTo
+
+A relationship test (`$student->program->code`) is a good green-light check that a `belongsTo`/`hasMany` pair is wired correctly, separate from the constraint tests above.
+
+### 2.4 Seeders
+
+Spec §20.3 requires seeders/fixtures/factories that can (re)populate a working dataset. Once factories exist for all seven entities (step 2.2 above gives you one per entity via `-f`), a `DatabaseSeeder` that creates a handful of programs, courses, terms, students, offerings, enrollments, and grades — in that dependency order — satisfies this. Keep it deterministic enough to be useful for manual testing (e.g., a known admin/instructor/student login), since Phase 3 auth testing and the final demo (§22) will lean on it.
+
+### Phase 2 checklist
+
+- [ ] ERD drawn, covering all 7 entities + `users`, saved somewhere in the repo (spec §20.5)
+- [ ] All 7 migrations created in dependency order and run clean
+- [ ] `role` column added to `users`
+- [ ] `student_number` unique constraint — test written and passing
+- [ ] Duplicate-enrollment prevention constraint — test written and passing
+- [ ] `course_code` unique constraint in place
+- [ ] All foreign keys constrained (`->constrained()` / `->foreignId()`), not just plain columns
+- [ ] All relationships from §2.3 defined and covered by at least one passing test
+- [ ] Factories exist for all 7 entities
+- [ ] `DatabaseSeeder` populates a working, dependency-ordered dataset
+- [ ] `php artisan migrate:fresh --seed` runs clean from an empty database
+
+Work through 2.1–2.4 yourself, test-first each entity. Come back once the full checklist is checked and I'll expand **Phase 3 — Authentication** — login/token issuance, password hashing, the `auth:sanctum` middleware you already have from Phase 1, and the TDD sequence for a protected "current user" endpoint.
