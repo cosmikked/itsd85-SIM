@@ -23,11 +23,11 @@ class GradeScaleFactory extends Factory
         ['min_score' => 82.00, 'max_score' => 87.99, 'grade_point' => 1.50, 'remarks' => 'PASSED'],
         ['min_score' => 76.00, 'max_score' => 81.99, 'grade_point' => 1.75, 'remarks' => 'PASSED'],
         ['min_score' => 70.00, 'max_score' => 75.99, 'grade_point' => 2.00, 'remarks' => 'PASSED'],
-        ['min_score' => 64.00, 'max_score' => 69.99, 'grade_point' => 2.50, 'remarks' => 'CONDITIONAL'],
-        ['min_score' => 58.00, 'max_score' => 63.99, 'grade_point' => 3.00, 'remarks' => 'PASSED'],
-        ['min_score' => 52.00, 'max_score' => 57.99, 'grade_point' => 4.00, 'remarks' => 'PASSED'],
-        ['min_score' => 50.00, 'max_score' => 51.99, 'grade_point' => 5.00, 'remarks' => 'PASSED'],
-        ['min_score' => 30.00, 'max_score' => 49.99, 'grade_point' => 5.00, 'remarks' => 'CONDITIONAL'],
+        ['min_score' => 64.00, 'max_score' => 69.99, 'grade_point' => 2.25, 'remarks' => 'CONDITIONAL'],
+        ['min_score' => 58.00, 'max_score' => 63.99, 'grade_point' => 2.50, 'remarks' => 'PASSED'],
+        ['min_score' => 52.00, 'max_score' => 57.99, 'grade_point' => 2.75, 'remarks' => 'PASSED'],
+        ['min_score' => 50.00, 'max_score' => 51.99, 'grade_point' => 3.00, 'remarks' => 'PASSED'],
+        ['min_score' => 30.00, 'max_score' => 49.99, 'grade_point' => 4.00, 'remarks' => 'CONDITIONAL'],
         ['min_score' => 0.00, 'max_score' => 29.99, 'grade_point' => 5.00, 'remarks' => 'FAILED'],
     ];
 

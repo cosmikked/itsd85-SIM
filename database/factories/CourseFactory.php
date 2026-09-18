@@ -39,6 +39,14 @@ class CourseFactory extends Factory
         ['course_code' => 'EE101', 'course_title' => 'Circuit Analysis', 'description' => 'DC and AC circuit theory and analysis techniques.', 'units' => 4],
         ['course_code' => 'PSY101', 'course_title' => 'General Psychology', 'description' => 'Introduction to the scientific study of behavior and mental processes.', 'units' => 3],
         ['course_code' => 'HM101', 'course_title' => 'Introduction to Hospitality Management', 'description' => 'Overview of the hotel, restaurant, and tourism industries.', 'units' => 3],
+        ['course_code' => 'CS301', 'course_title' => 'Web Development', 'description' => 'Design and development of dynamic, client-server web applications.', 'units' => 3],
+        ['course_code' => 'IT250', 'course_title' => 'Network Fundamentals', 'description' => 'Principles of computer networking, protocols, and network administration.', 'units' => 3],
+        ['course_code' => 'ACC210', 'course_title' => 'Cost Accounting', 'description' => 'Cost behavior, allocation, and analysis for managerial decision-making.', 'units' => 3],
+        ['course_code' => 'BA310', 'course_title' => 'Human Resource Management', 'description' => 'Principles of recruitment, training, and employee relations management.', 'units' => 3],
+        ['course_code' => 'NUR310', 'course_title' => 'Community Health Nursing', 'description' => 'Nursing care principles applied to community and public health settings.', 'units' => 3],
+        ['course_code' => 'HM210', 'course_title' => 'Food and Beverage Service', 'description' => 'Principles and practices of food and beverage service operations.', 'units' => 3],
+        ['course_code' => 'ED310', 'course_title' => 'Assessment of Learning', 'description' => 'Principles and tools for evaluating student learning outcomes.', 'units' => 3],
+        ['course_code' => 'PSY210', 'course_title' => 'Abnormal Psychology', 'description' => 'Study of atypical behavior patterns and psychological disorders.', 'units' => 3],
     ];
 
     /**
