@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProgramController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -20,5 +21,7 @@ Route::prefix('/v1')->group(function () {
             Route::get('/me', [AuthController::class, 'me'])->name('me'); 
         }); 
     });
+
+    Route::apiResource('programs', ProgramController::class)->middleware('auth:sanctum'); 
     
 }); 
