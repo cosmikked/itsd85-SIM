@@ -32,7 +32,7 @@ Work top to bottom within a phase. Don't skip ahead to the next phase's tests un
 - [x] **Phase 1 — Project Setup**: framework, repo, environment, database connection
 - [ ] **Phase 2 — Database Design**: ERD, migrations, constraints, relationships, seeders *(expanded below)*
 - [x] **Phase 3 — Authentication**: login, password hashing, protected routes, current user *(complete)*
-- [ ] **Phase 4 — Core Resources**: Programs, Students, Courses, Academic Terms (CRUD + validation) *(expanded below)*
+- [x] **Phase 4 — Core Resources**: Programs, Courses, Academic Terms, Students (CRUD + validation) *(complete)*
 - [ ] **Phase 5 — Academic Transactions**: Course Offerings, Enrollments, Grades, Academic Record
 - [ ] **Phase 6 — Advanced API Features**: search, filtering, sorting, pagination, consistent errors
 - [ ] **Phase 7 — Authorization**: role-based + object-level access rules
@@ -384,14 +384,15 @@ You write this part. Shape to aim for, matching what you already know from Phase
 
 **Verified 2026-09-20:** `php artisan test` passes (15 tests / 35 assertions), including all five `AuthenticationTest` cases. `php artisan route:list --path=v1` shows `POST api/v1/auth/login`, `POST api/v1/auth/logout` and `GET|HEAD api/v1/auth/me`, with `auth:sanctum` guarding the last two. The checkpoint ("protected endpoint rejects unauthenticated request") is met. Phase 3 is done — commit this work when you're ready.
 
-> **Non-blocking follow-ups (2026-09-20)** — three small things worth tidying, none of which stop Phase 4:
-> 1. **Route names.** `->name('auth.')` on a route *group* only sets a name **prefix**; each route still needs its own `->name('login')` / `->name('logout')` / `->name('me')`. Right now `route:list` shows all three as plain `auth.`, so `route('auth.login')` can't tell them apart.
-> 2. **`me()` returns only `id` and `email`.** 3.3 says to return the user (`$request->user()`). Returning the model gives clients `name` and `role` (Phase 7 will need `role`), and it makes test #4's `assertJsonMissingPath('password')` prove something — with a hand-picked array that assertion can never fail, so it no longer shows `#[Hidden]` doing its job.
+> **Follow-ups (updated 2026-09-20)** — none of these block Phase 4:
+> 1. ~~**Route names.**~~ *Resolved* — `route:list` now shows `auth.login`, `auth.logout` and `auth.me`. (For the record: `->name('auth.')` on a route *group* only sets a name **prefix**; each route still needs its own `->name('login')` etc.)
+> 2. ~~**`me()` returned only `id` and `email`.**~~ *Resolved* — it now returns the user, so test #4's `assertJsonMissingPath('password')` genuinely proves `#[Hidden]` is doing its job.
 > 3. **Formatting.** Run `vendor/bin/pint --dirty --format agent`; `AuthController.php` and `routes/api.php` still have trailing spaces and stray blank lines.
+> 4. **Response envelope.** Phase 4 adopts the spec §9 envelope (`success` / `message` / `data`, see 4.1). `login` and `me` still return their original flat bodies, so they get retrofitted in **4.6** once Programs is working.
 
 ---
 
-## Phase 4 — Core Resources *(expanded)*
+## Phase 4 — Core Resources *(complete)*
 
 **Checkpoint (spec §19):** CRUD requests work with validation.
 
@@ -405,6 +406,8 @@ You write this part. Shape to aim for, matching what you already know from Phase
 | Students | `GET`, `POST /api/v1/students` | `GET`, `PUT`/`PATCH`, `DELETE /api/v1/students/{id}` |
 
 **Out of scope for this phase** (so you don't build them early): search / filter / sort / `per_page` (Phase 6), role-based rules (Phase 7), nested routes like `/students/{id}/enrollments` (Phase 5). Every endpoint here simply requires a valid token.
+
+**Response shapes are decided here, not in Phase 6.** Successful responses and **validation** errors (`422`) follow the spec §9 envelopes — see 4.1. The shape of the *other* error statuses (`401`, `403`, `404`, `409`, `500`) is still Phase 6's job; until then, tests assert only their status code.
 
 ### 4.0 The four building blocks, explained from scratch
 
@@ -448,16 +451,59 @@ return ProgramResource::collection($paginator);  // many records → {"data": [.
 
 Resources wrap output in a `data` key by default, and a paginator adds `links` and `meta` automatically. When a resource wraps a model that was *just created*, Laravel sets the status to `201` for you; you can also set it explicitly — the test asserts `201` either way.
 
-### 4.1 Four decisions to make first
+**Adding `success` and `message` (the spec §9 envelope).** By default you only get `data`. A resource can add extra **top-level** keys beside it with `additional()`:
 
-These are choices the spec leaves open. My recommendation for each is below — make the call, then keep it consistent across all four resources.
+```php
+return (new ProgramResource($program))->additional([
+    'success' => true,
+    'message' => 'Program retrieved successfully.',
+]);
+// → {"data": {...}, "success": true, "message": "Program retrieved successfully."}
+```
 
-| Decision | Recommendation | Why |
+`JsonResource` also has a `with()` method for the same purpose, but it lives on the resource *class*, so it can't vary per action — and `message` differs for `index`, `show`, `store` and `update`. Per-call `additional()` fits better. Where you put it is your call: repeat it in each controller method, or write one small helper on the base `Controller`; the tests don't care which. On a paginated `index`, `links` and `meta` stay beside `data`, `success` and `message`.
+
+### 4.1 Decisions made up front
+
+These are choices the spec leaves open. They're settled now so all four resources stay consistent (and so `ProgramApiTest` has a fixed contract to test against).
+
+| Decision | Choice | Why |
 |---|---|---|
-| **Response shape** | API Resources with the default `data` wrapper. Leave the spec §9 `success` / `message` envelope for **Phase 6** ("consistent errors"). | Phase 6 is where the spec asks for consistent responses; designing the envelope now means designing it twice. Login and `me` staying flat is fine. |
+| **Success response shape** | The spec §9 envelope on every successful response except `204`: `success: true`, `message`, `data`. Built with an API Resource plus `additional()` (see 4.0). | Your decision — the spec asks for a predictable, documented format. Login and `me` are brought in line in 4.6. |
+| **Validation error shape** | The spec §9 error envelope, status `422`: `success: false`, `message: "Validation failed."`, `errors: { field: [ ...messages ] }`. Built **once, globally** (see "The validation error shape" below). | Your decision. One handler means every present and future endpoint gets the same shape. |
+| **Delete response** | `204 No Content`, no body. | A `204` can't carry a body, and spec §8.2 explicitly allows it "when appropriate". |
 | **Deleting a record that's still referenced** | Return `409 Conflict` and don't delete. (Details below.) | Otherwise the database refuses and you return a `500`. |
 | **Authentication in tests** | `Sanctum::actingAs(User::factory()->administrator()->create())` | An administrator may do everything (spec §12.2), so Phase 7's rules won't break your Phase 4 tests. |
-| **Collection endpoints** | `ProgramResource::collection(Program::paginate())` from the start. | Spec §11: collections must not be unbounded. Retrofitting pagination later changes the JSON shape and every list test. |
+| **Collection endpoints** | `ProgramResource::collection(Program::paginate())` from the start. | Spec §11: collections must not be unbounded. See "Pagination, in short" below. |
+
+**Message wording.** Follow the spec's own example ("Student retrieved successfully.") — `<Resource> <verb> successfully.`, with the plural for a list:
+
+| Action | `message` |
+|---|---|
+| `index` | `Programs retrieved successfully.` |
+| `show` | `Program retrieved successfully.` |
+| `store` | `Program created successfully.` |
+| `update` | `Program updated successfully.` |
+
+Message text is part of your API's contract, which is why `ProgramApiTest` asserts it exactly — change the wording in the tests and the code together.
+
+**The validation error shape.** Laravel's default `422` body has `message` and `errors` but no `success`. To get the spec's shape everywhere at once, render `ValidationException` yourself in `bootstrap/app.php`, inside the `withExceptions` callback you already have (it currently only calls `shouldRenderJsonWhen`). Docs: **[Errors → Rendering Exceptions](https://laravel.com/docs/13.x/errors#rendering-exceptions)**. The skeleton:
+
+```php
+$exceptions->render(function (ValidationException $e, Request $request) {
+    // return a JSON response with status 422 and the keys
+    // success (false), message ("Validation failed."), errors (from $e->errors())
+});
+```
+
+Restrict it to API requests (`$request->is('api/*')`), as your `shouldRenderJsonWhen` rule does. Two consequences to expect:
+
+- **It also reshapes the Phase 3 login failure.** The `message` becomes `"Validation failed."`, and your "The provided credentials are incorrect." text moves into `errors.email`. `AuthenticationTest` #3 only asserts that `message` and `errors` exist, so it keeps passing.
+- **Only validation errors are covered.** `401`, `403`, `404`, `409` and `500` keep Laravel's default bodies until Phase 6; tests assert their status code only.
+
+**Pagination, in short.** A collection endpoint (`index`) returns a list, and `paginate()` returns it one page at a time — **15 records per page by default**, page chosen by `?page=N` — instead of every row, which would grow without limit as data grows. Wrapped in a resource collection, the response carries `data` (this page's records) plus `links` (first/last/prev/next URLs) and `meta` (`current_page`, `per_page`, `total`, `last_page`, …) — the pagination metadata spec §11 asks for. Docs: **[Database: Pagination](https://laravel.com/docs/13.x/pagination)**. Choosing it now costs one method call per `index`; adding it later means finding every unbounded query, and any client that assumed "all records" would silently start getting only the first 15. The client-controlled page size (`?per_page=`), search, filtering and sorting are Phase 6.
+
+**Testing pagination needs more than 15 records.** With 3 records, or exactly 15, a paginated `index` and an unbounded one return the same thing, so the test couldn't tell them apart. Create **16** and assert page 1 holds 15 while `meta.total` is 16. Watch your factories: `ProgramFactory` picks from 12 fixed programs with `fake()->unique()`, so `Program::factory()->count(16)` throws an overflow — `ProgramApiTest` inserts the 16 rows directly instead.
 
 **The delete decision, in detail.** Your migrations use `restrictOnDelete()` on `students.program_id`, `course_offerings.course_id`, `course_offerings.academic_term_id` and `enrollments.student_id`. So `DELETE /api/v1/programs/1` on a program that has students makes the database refuse, and an unhandled `QueryException` becomes a `500` — spec §8.2 reserves `500` for *unexpected* failures and §13 says not to leak internals. The database constraint is your safety net; the controller should notice first. Two spec-compatible options (spec §8: "Delete/deactivate"):
 
@@ -487,13 +533,19 @@ Route::prefix('v1')->group(function () {
 });
 ```
 
-Controller method shapes:
+Controller method shapes (each success response also carries `success` and `message` via `additional()` — see 4.0 and the wording table in 4.1):
 
 - `index` — `paginate()` the model, return `Resource::collection(...)`.
 - `store` — `Model::create($request->validated())`, return the resource (`201`). Mass assignment is safe here because your models declare `#[Fillable([...])]`; never pass `$request->all()`.
 - `show` — `return new Resource($model)`.
 - `update` — `$model->update($request->validated())`, return the resource (`200`).
-- `destroy` — dependants exist → `409` with a clear message; otherwise delete and return `response()->noContent()` (`204`).
+- `destroy` — dependants exist → `409` with a clear message; otherwise delete and return `response()->noContent()` (`204`, no body, so no envelope).
+
+**Build order for Programs.** Do the one-off global work first, because every Program test that expects a `422` depends on it:
+
+1. Register `Route::apiResource('programs', ProgramController::class)` at the `v1` level inside `auth:sanctum` — the `404`s become `401`s for the unauthenticated tests, and empty-bodied `200`s for the rest (the scaffolded controller methods return nothing yet).
+2. Add the global `ValidationException` renderer in `bootstrap/app.php` (see "The validation error shape" in 4.1).
+3. Then work through the tests in the 4.4 order: resource, requests, controller methods.
 
 ### 4.3 Validation rules per resource
 
@@ -503,26 +555,31 @@ Derived from your migrations and spec §10. The database enums and `unsignedTiny
 |---|---|
 | **Programs** | `code`: required, string, unique. `name`: required, string, max 255. `description`: nullable string. `status`: optional, `in:active,inactive` (DB default is `active`). |
 | **Courses** | `course_code`: required, string, unique. `course_title`: required, string, max 255. `description`: nullable string. `units`: required, integer, **with a range you choose and document** — the column is `unsignedTinyInteger` (0–255), so the database alone won't stop `units: 200`; your factory uses 3–5. `status`: `in:active,inactive`. |
-| **Academic Terms** | `academic_year`: required, string (decide a format such as `2026-2027`; a `regex` rule can enforce it). `term`: required, `in:First Semester,Second Semester,MidYear` (exactly the migration's enum). `start_date`: required date. `end_date`: required date, `after:start_date`. `status`: `in:active,inactive`. The `(academic_year, term)` pair is unique in the database — add a matching validation rule (`Rule::unique(...)->where(...)`) so a duplicate is a `422`, not a `500`. |
-| **Students** | `student_number`: required, string, unique. `first_name`, `last_name`: required, string, max 255. `middle_name`, `suffix`: nullable string. `birth_date`: required date, `before:today`. `email`: nullable `email` (spec §10: "valid email format when supplied"; the column isn't unique — leave it unless you decide otherwise). `contact_number`, `address`: nullable string. `program_id`: required, `exists:programs,id` (spec §16 "invalid references"). `year_level`: required integer — your factory only generates 1–4, so **1–4 is the range your seed data already proves**; widen it only if you widen the factory too. `status`: `in:regular,irregular,extendee`. |
+| **Academic Terms** | `academic_year`: required, string, format `YYYY-YYYY` **with consecutive years** — built as a custom rule class (`app/Rules/ConsecutiveAcademicYear.php`, its own unit test in `tests/Unit/Rules/`), not a bare `regex`, since "is this a valid pair of years" is real logic worth naming and testing on its own. `term`: required, `in:First Semester,Second Semester,MidYear`. `start_date`/`end_date`: `date_format:Y-m-d`, `end_date` `after:start_date`. `status`: `in:active,inactive`. The `(academic_year, term)` pair is unique — `Rule::unique(...)->where(...)`, error reported on `term`. **Update is partial-friendly**: a field not sent falls back to the record's stored value for the cross-field checks (date order, the pair), so `PATCH {"status":"inactive"}` alone works without resending everything. |
+| **Students** | `student_number`: required, string, unique. `first_name`, `last_name`: required, string. `middle_name`, `suffix`: nullable string. `birth_date`: required date, `before:today`. `email`: **required**, `email`, **unique** — spec §10 only asked for "valid email format when supplied", but the schema was deliberately tightened (see the note below the table) so it's now mandatory and unique like a real student record. `contact_number`: **required, unique** (same reasoning). `address`: nullable string. `program_id`: required, `exists:programs,id` (spec §16 "invalid references"). `year_level`: required integer, `between:1,4` — your factory only generates 1–4, so that's the range the API enforces; widen it only if you widen the factory too. `status`: `in:regular,irregular,extendee`. |
+
+> **Schema change (2026-09-23):** the original `students` migration left `email` and `contact_number` nullable and non-unique, matching spec §10's minimum. A later decision tightened both to `NOT NULL` + `UNIQUE` via an additive migration (`add_constraints_to_students_table`) — student contact fields are effectively personal identifiers, and DB-level uniqueness protects them under concurrent requests the same way `student_number` and `course_code` already are. `StudentFactory` was updated to always generate a unique email and phone number (`fake()->unique()->numerify('09#########')` for the phone — see the pagination gotcha below).
 
 Keep each field's allowed values in one place (a constant on the model, for example) so the store and update requests can't drift apart.
 
 ### 4.4 TDD sequence
 
-Work one resource at a time: **Programs → Courses → Academic Terms → Students.** Programs is your template; once it's green, the others are variations. Students goes last because it needs programs to exist for `program_id`. Create one test class per resource — `php artisan make:test --phpunit ProgramApiTest` — under `tests/Feature`.
+Work one resource at a time: **Programs → Courses → Academic Terms → Students.** Programs is your template; once it's green, the others are variations. Students goes last because it needs programs to exist for `program_id`. Create one test class per resource — `php artisan make:test --phpunit CourseApiTest` — under `tests/Feature`.
 
-For each resource, write these in order. Each should be red for a specific, understood reason before you make it green (typically: `404` because the route doesn't exist → `500` "Class ...Controller does not exist" → wrong status/shape → green):
+**The Programs tests are already written:** `tests/Feature/ProgramApiTest.php` (15 test methods, expanding to 19 cases because the `401` test runs once per route). They're red now, and they are both the spec for the Program endpoints and the template for the other three — read them before you build, and copy their shape (including the two private helpers, `actingAsAdministrator()` and `assertValidationFailed()`) when you write the Courses, Academic Terms and Students tests yourself.
 
-1. **List without a token → `401`.**
-2. **List with a token** returns the created records under `data`.
-3. **Show** returns the record; an **unknown id → `404`**.
-4. **Store with valid data → `201`**, the new record in `data`, and the row in the database.
-5. **Store with missing required fields → `422`** with an error for each missing field, and nothing persisted.
-6. **Store with a duplicate unique value → `422`** (not `500`).
-7. **Update with valid data → `200`** and the database changed. **Update resending its own unique value → `200`** (the ignore-yourself case).
-8. **Destroy an unreferenced record → `204`** and the row is gone.
-9. **Destroy a referenced record → `409`** and the row is still there.
+For each resource, the tests cover these, in this order. Each should be red for a specific, understood reason before you make it green (typically: `404` because the route doesn't exist → `401`s or empty `200`s → wrong shape → green):
+
+1. **Every route without a token → `401`** — one data-provider test over `index`, `show`, `store`, `update` and `destroy`, which also proves the whole `apiResource` sits inside `auth:sanctum`.
+2. **List with a token** returns the created records under `data`, plus `success: true` and the `message`.
+3. **List is paginated:** with 16 records, page 1 holds 15 and `meta.total` is 16 (see the pagination note in 4.1 — check that your factory can make that many).
+4. **Show** returns the record in the envelope; an **unknown id → `404`**. (Until the route exists this test passes for the wrong reason — the route itself is what's missing. It only becomes meaningful once the route is registered.)
+5. **Store with valid data → `201`**, the envelope, the new record in `data`, and the row in the database. **Store with an optional field omitted → `201`.**
+6. **Store with missing required fields → `422`** in the error shape (`success: false`, `message: "Validation failed."`, an `errors` entry per missing field), and nothing persisted.
+7. **Store with a duplicate unique value → `422`** (not `500`), and **with an invalid enum value** (e.g. `status: archived`) **→ `422`**.
+8. **Update with valid data → `200`** and the database changed. **Update resending its own unique value → `200`** (the ignore-yourself case). **Update with another record's unique value → `422`**, row unchanged.
+9. **Destroy an unreferenced record → `204`** and the row is gone.
+10. **Destroy a referenced record → `409`** and the row is still there.
 
 Extra cases spec §16 names or implies:
 
@@ -530,26 +587,49 @@ Extra cases spec §16 names or implies:
 - **Academic Terms:** `end_date` before `start_date` → `422`; duplicate `(academic_year, term)` → `422`.
 - **Courses:** `units` outside your range → `422`.
 
-**Illustrative examples — the three least obvious ones.** Each test builds its own data; nothing is shared between tests.
+**Illustrative examples — the least obvious ones, taken from `ProgramApiTest`.** Each test builds its own data; nothing is shared between tests.
+
+A success response is asserted as the envelope plus the data, and the database row:
 
 ```php
-// tests/Feature/ProgramApiTest.php
-public function test_store_with_valid_data_returns_201_and_creates_program(): void
+public function test_store_with_valid_data_returns_201_and_creates_the_program(): void
 {
-    Sanctum::actingAs(User::factory()->administrator()->create());
+    $this->actingAsAdministrator();
 
     $response = $this->postJson('/api/v1/programs', [
         'code' => 'BSCS',
-        'name' => 'BS Computer Science',
+        'name' => 'Bachelor of Science in Computer Science',
+        'status' => 'inactive',
     ]);
 
-    $response->assertCreated()->assertJsonPath('data.code', 'BSCS');
-    $this->assertDatabaseHas('programs', ['code' => 'BSCS']);
+    $response->assertCreated()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('message', 'Program created successfully.')
+        ->assertJsonPath('data.code', 'BSCS');
+    $this->assertDatabaseHas('programs', ['code' => 'BSCS', 'status' => 'inactive']);
+}
+```
+
+Every `422` shares the same shape, so one private helper asserts it, and each validation test calls it with the fields that should have errors. The `message` is asserted exactly; the per-field messages aren't, because for the required/unique/in rules they're Laravel's defaults:
+
+```php
+private function assertValidationFailed(TestResponse $response, array $fields): void
+{
+    $response->assertUnprocessable()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', 'Validation failed.')
+        ->assertJsonValidationErrors($fields);
 }
 
+// used as:  $this->assertValidationFailed($response, ['code', 'name']);
+```
+
+The ignore-yourself case, which catches a `unique` rule missing its `->ignore(...)`:
+
+```php
 public function test_update_resending_its_own_code_returns_200(): void
 {
-    Sanctum::actingAs(User::factory()->administrator()->create());
+    $this->actingAsAdministrator();
     $program = Program::factory()->create(['code' => 'BSCS']);
 
     $response = $this->putJson("/api/v1/programs/{$program->id}", [
@@ -559,10 +639,14 @@ public function test_update_resending_its_own_code_returns_200(): void
 
     $response->assertOk()->assertJsonPath('data.name', 'Renamed Program');
 }
+```
 
-public function test_destroy_returns_409_when_program_has_students(): void
+And a delete that must be refused, with the row still present afterward:
+
+```php
+public function test_destroy_returns_409_when_the_program_has_students(): void
 {
-    Sanctum::actingAs(User::factory()->administrator()->create());
+    $this->actingAsAdministrator();
     $program = Program::factory()->create();
     Student::factory()->create(['program_id' => $program->id]);
 
@@ -572,7 +656,7 @@ public function test_destroy_returns_409_when_program_has_students(): void
 }
 ```
 
-Write the rest yourself, following the same shape. Note the difference from Phase 2: the duplicate-`student_number` test there proves the **database constraint** (it expects a `QueryException`); the one here proves the **API** turns a duplicate into a clean `422`. You want both — and the Phase 2 one is still unchecked.
+Write the tests for the other three resources yourself, following the same shape. Note the difference from Phase 2: the duplicate-`student_number` test there proves the **database constraint** (it expects a `QueryException`); the one here proves the **API** turns a duplicate into a clean `422`. You want both — and the Phase 2 one is still unchecked.
 
 ### 4.5 Easy-to-miss traps
 
@@ -581,18 +665,49 @@ Write the rest yourself, following the same shape. Note the difference from Phas
 - **Enum and range columns don't validate for you** — `status`, `term`, `year_level` and `units` need explicit rules, or bad input becomes a database error.
 - **Routes at the wrong level** — `apiResource` inside your `auth` prefix group produces `/api/v1/auth/programs`. Check with `php artisan route:list --path=v1`.
 - **Postman/clients should send `Accept: application/json`.** Your `bootstrap/app.php` forces JSON errors for `api/*`, but the header is the safe habit and the tests' `getJson`/`postJson` helpers already send it.
+- **The `422` shape isn't automatic.** Laravel's default validation error has no `success` key, so every validation test fails on `success` until the `ValidationException` renderer exists in `bootstrap/app.php`. Build it first (see 4.2).
+- **`success` must be a real boolean.** `'success' => true`, not `'true'`; the tests compare the JSON type.
+- **The `204` has no envelope.** Don't `additional()` onto `response()->noContent()`; a `204` carries no body.
+- **Unique-limited factories break bulk data.** `fake()->unique()->randomElement([...])` runs out after the list is exhausted (12 programs) and throws, even when you override the field. For pagination tests needing 16+ rows, insert them directly or check how many distinct values your factory can produce.
+- **A unique-limited factory can bite you *indirectly*.** `Student::factory()->count(16)->create()` failed for the same reason as the point above, but the exhausted factory was `ProgramFactory`, not `StudentFactory` — every student's default `program_id` spawns a *new* `Program::factory()`, and 16 of those exceeds `ProgramFactory`'s pool of 12. Fix: create one shared `Program` first and pass its id explicitly (`Student::factory()->count(16)->create(['program_id' => $program->id])`). Watch for this any time one factory's default relationship points at another factory with a capped/unique pool — Phase 5's `CourseOffering` (which defaults `course_id`, `academic_term_id` and `instructor_id` to their own factories) is a likely repeat.
+- **`fake()->unique()->phoneNumber()` collides faster than you'd expect.** Its few locale-specific formats ran out well before Faker's own 10,000-retry limit once a test file created a few dozen students. `fake()->unique()->numerify('09#########')` (a fixed digit template, same idea as `student_number`) sidesteps the problem entirely — prefer `numerify()` over a semantic Faker method whenever a field just needs to be unique, not necessarily "look real".
+
+### 4.6 Retrofit the Phase 3 endpoints to the envelope
+
+Once Programs is fully green, bring `login` and `me` in line with 4.1 so the whole API is consistent. `logout` stays `204` with no body. This changes existing behaviour, so it changes two Phase 3 tests too:
+
+| Endpoint | New body | Suggested `message` |
+|---|---|---|
+| `POST /api/v1/auth/login` (success) | `{"success": true, "message": ..., "data": {"token": "..."}}` | `Login successful.` |
+| `GET /api/v1/auth/me` | `{"success": true, "message": ..., "data": {<the user>}}` | `Current user retrieved successfully.` |
+
+- `AuthenticationTest` #2 asserts the token at the top level (`assertJsonStructure(['token'])`); it becomes `data.token`, and should also assert `success` and `message`.
+- `AuthenticationTest` #4 asserts `id`, `email` and the missing `password` at the top level; those paths become `data.id`, `data.email` and `data.password` (still asserted *missing*). Keep the `remember_token` assertion too.
+- `me()` currently returns the `User` model itself. To wrap it, either pass it through a small resource with `additional()`, or build the array by hand — but the model's `#[Hidden]` only protects you if you serialize the model (or a resource that includes only the fields you list), so keep test #4's missing-`password` assertion as your safety net.
+- The failed-login `422` needs no change: the global renderer from 4.1 already reshapes it, and test #3 only asserts that `message` and `errors` exist (you can tighten it to assert `success: false` and `"Validation failed."`).
 
 ### Phase 4 checklist
 
-- [ ] `apiResource` routes for `programs`, `courses`, `academic-terms`, `students` inside `v1` + `auth:sanctum` (`php artisan route:list --path=v1` shows five routes each, all behind `auth:sanctum`)
-- [ ] Each resource has a store request, an update request, and an API Resource class
-- [ ] Every collection endpoint without a token → `401`
-- [ ] **Programs:** list, show, unknown id → `404`, store `201`, store missing fields `422`, duplicate `code` `422`, update `200`, update with own `code` `200`, destroy `204`, destroy referenced `409` — tests written and passing
-- [ ] **Courses:** the same set, plus `units` out of range → `422`
-- [ ] **Academic Terms:** the same set, plus `end_date` before `start_date` `422` and duplicate `(academic_year, term)` `422`
-- [ ] **Students:** the same set, plus invalid email, nonexistent `program_id` and duplicate `student_number` (each `422`)
-- [ ] Deleting a still-referenced record returns `409` — never `500` — for all four resources
-- [ ] Collection endpoints are paginated (no unbounded `->get()`)
-- [ ] `php artisan test` green; `vendor/bin/pint --dirty --format agent` clean
+- [x] Global `ValidationException` renderer in `bootstrap/app.php` returns the spec §9 error shape (`success: false`, `message: "Validation failed."`, `errors`) with status `422` for `api/*` requests
+- [x] `apiResource` routes for `programs`, `courses`, `academic-terms`, `students` inside `v1` + `auth:sanctum` (`php artisan route:list --path=v1` shows five routes each, all behind `auth:sanctum`)
+- [x] Each resource has a store request, an update request, and an API Resource class
+- [x] Every successful response except `204` uses the envelope (`success: true`, `message`, `data`); collections keep `links` and `meta` beside it
+- [x] Every route of every resource without a token → `401`
+- [x] **Programs:** `ProgramApiTest` passes in full — 19 cases
+- [x] **Courses:** `CourseApiTest` passes in full — 27 cases, incl. `units` out of range → `422`
+- [x] **Academic Terms:** `AcademicTermApiTest` passes in full — 33 cases, incl. `end_date` before `start_date` `422`, duplicate `(academic_year, term)` `422`, and the custom `ConsecutiveAcademicYear` rule (14 unit cases of its own)
+- [x] **Students:** `StudentApiTest` passes in full — 37 cases, incl. invalid email, nonexistent `program_id`, duplicate `student_number`/`email`/`contact_number` (each `422`)
+- [x] Deleting a still-referenced record returns `409` — never `500` — for all four resources
+- [x] Collection endpoints are paginated (no unbounded `->get()`), with a test that proves it
+- [ ] Phase 3 retrofit done (4.6): `login` and `me` use the envelope, and `AuthenticationTest` #2 and #4 are updated — **not done, see follow-ups below**
+- [x] `php artisan test` green; `vendor/bin/pint --dirty --format agent` clean on every file touched this phase
 
-Work through 4.0–4.5 yourself, test-first, one resource at a time. Come back once the checklist is checked and I'll expand **Phase 5 — Academic Transactions** — Course Offerings, Enrollments, Grades and the Academic Record, where the cross-table rules (capacity, duplicate enrollment, grade ranges) live. If you have a spare moment before then, the two unchecked Phase 2 constraint tests (`student_number`, duplicate enrollment) are quick wins.
+**Verified 2026-09-23:** `php artisan test` passes (145 tests / 550 assertions) — the previous 108 (Phases 1–3 + Programs/Courses/Academic Terms) plus 37 new `StudentApiTest` cases. `php artisan route:list --path=v1` shows 18 routes: 3 auth + 5 each for `programs`, `courses`, `academic-terms`, `students`, all four resource groups behind `auth:sanctum`. The checkpoint ("CRUD requests work with validation") is met for all four resources. Phase 4 is done — commit this work when you're ready.
+
+> **Follow-ups (2026-09-23)** — none of these block Phase 5:
+> 1. **4.6 (Phase 3 envelope retrofit) is still outstanding.** `login` and `me` still return their original flat bodies, not the spec §9 envelope every other endpoint now uses. Low urgency — those two endpoints work correctly, they're just inconsistent in shape with the rest of the API. Worth doing before Phase 8 (Documentation), where a single documented response format matters more.
+> 2. **Known bug, deliberately not fixed:** `ProgramController::store` and `CourseController::store` return `"status": null` in the response body when `status` is omitted from the request, even though the database correctly stores the column's default (`active`). Confirmed by manual testing (login → `POST` without `status` → compare the create response against a follow-up `GET`). The fix is the same one-liner already used in `AcademicTermController`/`StudentController`: `->refresh()` after `->create()`. Not applied to Programs/Courses this session by explicit choice — do it with a test (assert `data.status` on an omitted-status create) whenever you're ready.
+> 3. **`students` schema change needs a manual step.** `email` and `contact_number` are now `NOT NULL` + `UNIQUE` (new migration `add_constraints_to_students_table`). Your dev SQLite database still has the old schema until you run `php artisan migrate:fresh --seed` yourself.
+> 4. The two unchecked Phase 2 constraint tests (`student_number` uniqueness, duplicate enrollment) are still open — see the Phase 2 note above. Still not a blocker, but circle back before Phase 9.
+
+Come back once you're ready and I'll expand **Phase 5 — Academic Transactions** — Course Offerings, Enrollments, Grades and the Academic Record, where the cross-table rules (capacity, duplicate enrollment, grade ranges) live.
