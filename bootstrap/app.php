@@ -17,15 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // so guests are not automatically redirected to a login route 
-        $middleware->redirectGuestsTo(fn () => null); 
+        // so guests are not automatically redirected to a login route
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
-        // custom error message structure used in all API error responses 
+        // custom error message structure used in all API error responses
         $error = fn (string $message, int $status, array $errors = []) => response()->json([
             'success' => false,
             'message' => $message,

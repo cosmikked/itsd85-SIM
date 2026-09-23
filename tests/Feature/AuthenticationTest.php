@@ -27,7 +27,7 @@ class AuthenticationTest extends TestCase
             'password' => 'correct-password',
         ]);
 
-        // asserts response is 200 and that a 'token' key exists in the response body 
+        // asserts response is 200 and that a 'token' key exists in the response body
         $response->assertOk()->assertJsonStructure(['token']);
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_id' => $user->id,

@@ -26,6 +26,7 @@ class GradeSeeder extends Seeder
                     'enrollment_id' => $enrollment->id,
                     'remarks' => 'DROPPED',
                 ]);
+
                 continue;
             }
 
@@ -35,16 +36,17 @@ class GradeSeeder extends Seeder
                     'enrollment_id' => $enrollment->id,
                     'remarks' => 'INCOMPLETE',
                 ]);
+
                 continue;
             }
 
             $midtermRawScore = fake()->randomFloat(2, 50, 100);
             $midtermScale = $this->matchingGradeScale($midtermRawScore);
-            
+
             $finaltermRawScore = fake()->randomFloat(2, 50, 100);
             $finaltermScale = $this->matchingGradeScale($finaltermRawScore);
 
-            $finalRawScore = (1/3 * $midtermRawScore) + (2/3 * $finaltermRawScore);
+            $finalRawScore = (1 / 3 * $midtermRawScore) + (2 / 3 * $finaltermRawScore);
             $finalScale = $this->matchingGradeScale($finalRawScore);
 
             $remarks = ($finalScale?->grade_point <= 3.00) ? 'PASSED' : 'FAILED';

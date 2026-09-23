@@ -14,28 +14,28 @@ class AuthController extends Controller
 {
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = User::where('email', $request->email)->first(); 
+        $user = User::where('email', $request->email)->first();
 
-        if (!$user || ! Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.']
+                'email' => ['The provided credentials are incorrect.'],
             ]);
         }
 
-        $token =  $user->createToken('api-login')->plainTextToken; 
+        $token = $user->createToken('api-login')->plainTextToken;
 
         return response()->json(['token' => $token]);
     }
 
     public function logout(Request $request): Response
     {
-        $request->user()->currentAccessToken()->delete(); 
+        $request->user()->currentAccessToken()->delete();
 
-        return response()->noContent(); 
+        return response()->noContent();
     }
 
     public function me(Request $request): User
     {
-        return $request->user(); 
+        return $request->user();
     }
 }
