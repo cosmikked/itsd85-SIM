@@ -28,7 +28,7 @@ class CourseController extends Controller
      */
     public function store(StoreCourseRequest $request)
     {
-        $course = Course::create($request->validated());
+        $course = Course::create($request->validated())->refresh();
 
         return CourseResource::make($course)->additional([
             'success' => true,

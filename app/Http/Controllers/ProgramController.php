@@ -28,7 +28,7 @@ class ProgramController extends Controller
      */
     public function store(StoreProgramRequest $request)
     {
-        $program = Program::create($request->validated());
+        $program = Program::create($request->validated())->refresh();
 
         return ProgramResource::make($program)->additional([
             'success' => true,

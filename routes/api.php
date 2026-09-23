@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AcademicTermController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\ProgramController;
@@ -25,5 +26,6 @@ Route::prefix('/v1')->group(function () {
 
     Route::apiResource('programs', ProgramController::class)->middleware('auth:sanctum');
     Route::apiResource('courses', CourseController::class)->middleware('auth:sanctum');
+    Route::apiResource('academic-terms', AcademicTermController::class)->middleware('auth:sanctum');
     
 }); 

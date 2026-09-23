@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
+        // custom error message structure used in all API error responses 
         $error = fn (string $message, int $status, array $errors = []) => response()->json([
             'success' => false,
             'message' => $message,
