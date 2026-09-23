@@ -12,13 +12,17 @@ This turns `ACTIVITY_INSTRUCTIONS.md` §8.1 (Required Endpoint Groups), §9 (Res
 - **Status codes** (spec §8.2): `200` read/update, `201` create, `204` delete (no body) or `200` (with body, if you prefer confirming what was deleted/deactivated), `401` not authenticated, `403` authenticated but not allowed, `404` doesn't exist, `409`/`422` conflict or validation failure.
 - **"Allowed Roles"** reflects spec §12.2's table applied to this schema's actual `users.role` values (`administrator`, `registrar`, `instructor`, `student`) and the `DATA_DICTIONARY.md` schema. A few of these are judgment calls where the spec doesn't spell out the exact rule — flagged in **Open Decisions** at the bottom. Don't treat this column as unquestionable; confirm it matches what you actually intend.
 
+> **Status (updated 2026-09-23):** the "Allowed Roles" column describes the *intended* Phase 7 design — role-based authorization isn't built yet. As of Phase 4, every endpoint below requires only a valid Sanctum token (`auth:sanctum`); anyone logged in, regardless of role, can call it. Don't read a role restriction as already enforced until Phase 7 is checked off in `DEV_GUIDE.md`. Each already-built section below is marked **Built**, with a pointer to its test file; everything else is **Not started**.
+
 ---
 
 ## Authentication
 
-- [ ] `POST /api/v1/auth/login`
-- [ ] `POST /api/v1/auth/logout`
-- [ ] `GET /api/v1/auth/me`
+**Built** — see `tests/Feature/AuthenticationTest.php`. Note: `login`/`me` don't yet use the success envelope described above (see `DEV_GUIDE.md` Phase 4's follow-up #1, "4.6 retrofit").
+
+- [x] `POST /api/v1/auth/login`
+- [x] `POST /api/v1/auth/logout`
+- [x] `GET /api/v1/auth/me`
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
@@ -32,65 +36,77 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 ## Students
 
-- [ ] `GET /api/v1/students`
-- [ ] `POST /api/v1/students`
-- [ ] `GET /api/v1/students/{id}`
-- [ ] `PUT`/`PATCH /api/v1/students/{id}`
-- [ ] `DELETE /api/v1/students/{id}`
+**Built** — see `tests/Feature/StudentApiTest.php`. **Schema note:** `email` and `contact_number` were tightened after this table was first written — both are now `NOT NULL` + `UNIQUE` at the database level (migration `add_constraints_to_students_table`), not just "valid format if supplied" as originally planned.
+
+- [x] `GET /api/v1/students`
+- [x] `POST /api/v1/students`
+- [x] `GET /api/v1/students/{id}`
+- [x] `PUT`/`PATCH /api/v1/students/{id}`
+- [x] `DELETE /api/v1/students/{id}`
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /students` | Admin, Registrar | Query params: `search`, `program_id`, `year_level`, `status`, `page`, `per_page` (spec §11) all optional. | `200`, paginated list. | `401`, `403`. |
-| `POST /students` | Admin, Registrar | `student_number` required, unique; `first_name`, `last_name`, `birth_date`, `program_id`, `year_level` required; `program_id` must reference an existing program; `email` valid format if supplied; `status` in `regular`\|`irregular`\|`extendee`. | `201`, returns created student. | `422` validation failure (incl. duplicate `student_number` — spec §16 explicitly requires this test case); `401`, `403`. |
-| `GET /students/{id}` | Admin, Registrar (any); Student (**own record only** — object-level check per spec §12.2) | — | `200`. | `404` not found; `403` a student requesting another student's `id`. |
-| `PUT`/`PATCH /students/{id}` | Admin, Registrar | Same field rules as create, but `student_number` uniqueness check must exclude the current record. | `200`, returns updated student. | `422`, `404`, `401`, `403`. |
-| `DELETE /students/{id}` | Admin, Registrar | Consider soft-delete/deactivate (`status`) instead of a hard delete, since `students.id` is referenced by `enrollments` — a hard delete would be blocked by `restrictOnDelete` on `program_id`'s side, but you still need a plan for a student with existing enrollments. | `200`/`204`. | `404`, `401`, `403`, `409` if you keep a hard-delete and it's blocked by existing enrollments. |
+| `GET /students` | Admin, Registrar | Paginated, 15/page. Query params (`search`, `program_id`, `year_level`, `status`, `per_page`) are Phase 6, not built yet. | `200`, paginated list. | `401`, `403`. |
+| `POST /students` | Admin, Registrar | `student_number` required, unique; `first_name`, `last_name` required; `birth_date` required, must be before today; `email` **required, valid format, unique**; `contact_number` **required, unique**; `program_id` required, must reference an existing program; `year_level` required, **integer between 1 and 4**; `status` in `regular`\|`irregular`\|`extendee` (optional, defaults to `regular`). | `201`, returns created student. | `422` validation failure (incl. duplicate `student_number`/`email`/`contact_number` — spec §16 explicitly requires this test case); `401`, `403`. |
+| `GET /students/{id}` | Admin, Registrar (any); Student (**own record only** — object-level check per spec §12.2, **not built — Phase 7**) | — | `200`. | `404` not found; `403` a student requesting another student's `id` (Phase 7). |
+| `PUT`/`PATCH /students/{id}` | Admin, Registrar | Same field rules as create, every field optional (partial update); `student_number`/`email`/`contact_number` uniqueness checks exclude the current record. | `200`, returns updated student. | `422`, `404`, `401`, `403`. |
+| `DELETE /students/{id}` | Admin, Registrar | **Decided:** hard delete, blocked if the student has any enrollments (`students.enrollments()->exists()`). | `204`, no body. | `404`, `401`, `403`, `409` if the student has enrollments. |
 
 ---
 
 ## Programs
 
-- [ ] `GET`/`POST /api/v1/programs`
-- [ ] `GET`/`PUT`/`PATCH`/`DELETE /api/v1/programs/{id}`
+**Built** — see `tests/Feature/ProgramApiTest.php`.
+
+- [x] `GET`/`POST /api/v1/programs`
+- [x] `GET`/`PUT`/`PATCH`/`DELETE /api/v1/programs/{id}`
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /programs`, `GET /programs/{id}` | Any authenticated role (reference data every role needs — e.g. to populate a student-creation form) | — | `200`. | `401`, `404` for the single-record form. |
-| `POST /programs` | Admin, Registrar | `code` required, unique; `name` required; `status` in `active`\|`inactive`. | `201`. | `422` (incl. duplicate `code`), `401`, `403`. |
-| `PUT`/`PATCH /programs/{id}` | Admin, Registrar | Same, `code` uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
-| `DELETE /programs/{id}` | Admin | `program_id` on `students` is `restrictOnDelete` — a program with any students can't be deleted. | `200`/`204`. | `409` if students reference it, `404`, `401`, `403`. |
+| `GET /programs`, `GET /programs/{id}` | Any authenticated role (reference data every role needs — e.g. to populate a student-creation form) | Paginated, 15/page. | `200`. | `401`, `404` for the single-record form. |
+| `POST /programs` | Admin, Registrar | `code` required, unique; `name` required; `description` nullable; `status` in `active`\|`inactive` (optional, defaults to `active`). | `201`. | `422` (incl. duplicate `code`), `401`, `403`. |
+| `PUT`/`PATCH /programs/{id}` | Admin, Registrar | Same, every field optional (partial update), `code` uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
+| `DELETE /programs/{id}` | Admin | **Decided:** hard delete, blocked if the program has any students (`program_id` is `restrictOnDelete`, checked at the app layer first so it's a clean `409` rather than a raw DB error). | `204`, no body. | `409` if students reference it, `404`, `401`, `403`. |
+
+> **Known bug (deliberately not fixed as of 2026-09-23):** `POST /programs` without `status` returns `"status": null` in the response body, even though the database correctly stores the default (`active`). Confirmed by manual testing; the fix is a one-line `->refresh()` in `ProgramController::store`, same as the other three resources already do — just not applied here yet. See `DEV_GUIDE.md` Phase 4 follow-ups.
 
 ---
 
 ## Courses
 
-- [ ] `GET`/`POST /api/v1/courses`
-- [ ] `GET`/`PUT`/`PATCH`/`DELETE /api/v1/courses/{id}`
+**Built** — see `tests/Feature/CourseApiTest.php`. Same `status: null`-on-create bug as Programs (see above), same reason, not fixed here either.
+
+- [x] `GET`/`POST /api/v1/courses`
+- [x] `GET`/`PUT`/`PATCH`/`DELETE /api/v1/courses/{id}`
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /courses`, `GET /courses/{id}` | Any authenticated role | — | `200`. | `401`, `404`. |
-| `POST /courses` | Admin, Registrar | `course_code` required, unique (spec §7.2); `course_title`, `units` required; `status` in `active`\|`inactive`. | `201`. | `422` (incl. duplicate `course_code`), `401`, `403`. |
-| `PUT`/`PATCH /courses/{id}` | Admin, Registrar | Same, `course_code` uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
-| `DELETE /courses/{id}` | Admin | `course_id` on `course_offerings` is `restrictOnDelete`. | `200`/`204`. | `409` if offerings reference it, `404`, `401`, `403`. |
+| `GET /courses`, `GET /courses/{id}` | Any authenticated role | Paginated, 15/page. | `200`. | `401`, `404`. |
+| `POST /courses` | Admin, Registrar | `course_code` required, unique (spec §7.2); `course_title` required; `description` nullable; `units` required, integer, **between 1 and 9** (a judgment call — the column allows 0–255, this range was chosen to match realistic course loads); `status` in `active`\|`inactive` (optional). | `201`. | `422` (incl. duplicate `course_code`, `units` out of range), `401`, `403`. |
+| `PUT`/`PATCH /courses/{id}` | Admin, Registrar | Same, every field optional (partial update), `course_code` uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
+| `DELETE /courses/{id}` | Admin | **Decided:** hard delete, blocked if the course has any course offerings (`course_id` is `restrictOnDelete`, checked at the app layer for a clean `409`). | `204`, no body. | `409` if offerings reference it, `404`, `401`, `403`. |
 
 ---
 
 ## Academic Terms
 
-- [ ] `GET`/`POST /api/v1/academic-terms`
-- [ ] `GET`/`PUT`/`PATCH`/`DELETE /api/v1/academic-terms/{id}`
+**Built** — see `tests/Feature/AcademicTermApiTest.php`. `academic_year` is validated by a custom rule class, `app/Rules/ConsecutiveAcademicYear.php` (its own unit tests in `tests/Unit/Rules/`), not a bare format check — see below.
+
+- [x] `GET`/`POST /api/v1/academic-terms`
+- [x] `GET`/`PUT`/`PATCH`/`DELETE /api/v1/academic-terms/{id}`
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /academic-terms`, `GET /academic-terms/{id}` | Any authenticated role | — | `200`. | `401`, `404`. |
-| `POST /academic-terms` | Admin, Registrar | `academic_year`, `term` (`First Semester`\|`Second Semester`\|`MidYear`), `start_date`, `end_date` required; `end_date` after `start_date`; `(academic_year, term)` pair unique. | `201`. | `422` (incl. duplicate year+term pair), `401`, `403`. |
-| `PUT`/`PATCH /academic-terms/{id}` | Admin, Registrar | Same, pair-uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
-| `DELETE /academic-terms/{id}` | Admin | `academic_term_id` on `course_offerings` is `restrictOnDelete`. | `200`/`204`. | `409` if offerings reference it, `404`, `401`, `403`. |
+| `GET /academic-terms`, `GET /academic-terms/{id}` | Any authenticated role | Paginated, 15/page. | `200`. | `401`, `404`. |
+| `POST /academic-terms` | Admin, Registrar | `academic_year` required, format `YYYY-YYYY` **with the second year exactly one more than the first** (e.g. `2026-2027` passes, `2026-2028` doesn't — enforced by `ConsecutiveAcademicYear`); `term` required, `First Semester`\|`Second Semester`\|`MidYear`; `start_date`/`end_date` required, `Y-m-d` format, `end_date` after `start_date`; `(academic_year, term)` pair unique (error reported on `term`). | `201`. | `422` (incl. duplicate year+term pair, non-consecutive year), `401`, `403`. |
+| `PUT`/`PATCH /academic-terms/{id}` | Admin, Registrar | **Partial-friendly update:** every field optional; a field not sent keeps its stored value, and the cross-field checks (date order, the year+term pair) fall back to that stored value for whichever side wasn't sent — so `PATCH {"status":"inactive"}` alone works without resending the rest. | `200`. | `422`, `404`, `401`, `403`. |
+| `DELETE /academic-terms/{id}` | Admin | **Decided:** hard delete, blocked if the term has any course offerings (`academic_term_id` is `restrictOnDelete`, checked at the app layer for a clean `409`). | `204`, no body. | `409` if offerings reference it, `404`, `401`, `403`. |
 
 ---
 
 ## Course Offerings
+
+**Not started — Phase 5.** Field names below haven't been re-checked against the actual migrations since this table was written; verify `grades`/`grade_scales` column names before building against this section.
 
 - [ ] `GET`/`POST /api/v1/course-offerings`
 - [ ] `GET`/`PUT`/`PATCH`/`DELETE /api/v1/course-offerings/{id}`
@@ -105,6 +121,8 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 ---
 
 ## Enrollments
+
+**Not started — Phase 5.**
 
 - [ ] `GET`/`POST /api/v1/enrollments`
 - [ ] `GET`/`PATCH`/`DELETE /api/v1/enrollments/{id}`
@@ -125,6 +143,8 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 ## Grades
 
+**Not started — Phase 5.**
+
 - [ ] `GET`/`POST /api/v1/grades`
 - [ ] `GET`/`PUT`/`PATCH /api/v1/grades/{id}`
 - [ ] `GET /api/v1/students/{id}/grades`
@@ -141,6 +161,8 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 ## Academic Record
 
+**Not started — Phase 5.**
+
 - [ ] `GET /api/v1/students/{id}/academic-record`
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
@@ -156,3 +178,4 @@ These aren't spelled out precisely enough by the spec to have one obviously-corr
 1. **Does a Student self-enroll, or does Registrar/Admin enroll them?** The spec doesn't say either way. The table above defaults to staff-managed (`POST /enrollments` restricted to Admin/Registrar), matching §5.1's "Registrar/Staff... manage... enrollments." If you want self-service enrollment, `student` needs to be added to that endpoint's allowed roles, plus an object-level check that a student can only create an enrollment for themselves.
 2. **Is there a `/users` CRUD endpoint group at all?** Spec §8.1 doesn't list one, but §6 requires a "Users and Roles" module, and someone has to create the `instructor`/`registrar` accounts referenced by `course_offerings.instructor_id`. You'll need *some* way to create users — either a dedicated Admin-only `/users` endpoint group (not in §8.1 but reasonable to add) or a seeder-only approach for the fixed set of staff accounts. Worth deciding explicitly rather than discovering the gap mid-Phase-4.
 3. **Hard delete vs. deactivate**, called out per-resource above wherever a `restrictOnDelete` FK makes a literal `DELETE` awkward (Programs, Courses, Academic Terms, Course Offerings, Enrollments). Spec §8's table lists "Delete/deactivate" as one operation — it's explicitly leaving this choice to you.
+   **Settled for Programs, Courses, Academic Terms, Students (2026-09-23):** hard delete, blocked with `409` if a dependent record exists, checked at the app layer before the database's own constraint would otherwise raise a `500`. Still open for Course Offerings and Enrollments — the same pattern is the obvious default, but confirm before assuming it, since `enrollments.grade` is `cascadeOnDelete` (see the Enrollments/Grades note above) which is a different situation from the others.

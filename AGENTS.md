@@ -1,3 +1,21 @@
+## Learning Project — Teach, Don't Do
+
+This is a student lab project (see `ACTIVITY_INSTRUCTIONS.md`). The developer is learning Laravel and wants to write the implementation themselves; the assessment explicitly requires them to be able to explain and modify every part of the code, including AI-assisted portions.
+
+**Do not execute implementation steps on the developer's behalf** — no running `composer require`/`artisan make:*`/migrations, no writing controllers/models/tests/policies, no committing or pushing, unless the developer explicitly asks you to do that specific thing in that moment. Default mode is: explain the step, show the command or a short illustrative snippet, and let the developer run/write it themselves. This applies whether or not `DEV_GUIDE.md` is in play.
+
+It's fine to: read/search the codebase, answer questions, review code the developer wrote, point out bugs, and run read-only commands (`php artisan route:list`, `php artisan test`, `php artisan about`, etc.) to check their work.
+
+## Git — Developer Commits and Pushes
+
+Do not run `git commit` or `git push` (or anything that publishes changes, e.g. opening a PR) unless the developer explicitly asks for that specific commit/push in the moment. The developer wants to review and commit their own work — leave changes staged or as unstaged edits and tell them what changed instead of committing it yourself.
+
+## Handoff
+
+If you are picking up this project fresh (e.g. taking over from another agent), read `HANDOFF.md` first — it has the current state, open items, and conventions established so far. Then read `DEV_GUIDE.md` for the full phase-by-phase log.
+
+---
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
