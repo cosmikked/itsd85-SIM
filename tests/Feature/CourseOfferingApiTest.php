@@ -6,6 +6,7 @@ use App\Models\AcademicTerm;
 use App\Models\Course;
 use App\Models\CourseOffering;
 use App\Models\Enrollment;
+use App\Models\Program;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -185,8 +186,6 @@ class CourseOfferingApiTest extends TestCase
 
         // Resend the exact same unique fields, but change capacity
         $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
-            'course_id' => $offering->course_id,
-            'academic_term_id' => $offering->academic_term_id,
             'instructor_id' => $offering->instructor_id,
             'section' => 'A1', // Same section
             'schedule' => $offering->schedule,
@@ -196,12 +195,37 @@ class CourseOfferingApiTest extends TestCase
         $response->assertOk()->assertJsonPath('data.capacity', 45);
     }
 
+    public function test_update_rejects_changes_to_course_id_or_academic_term_id(): void
+    {
+        $this->actingAsAdministrator();
+        $offering = CourseOffering::factory()->create();
+
+        $newCourse = Course::factory()->create();
+        $newTerm = AcademicTerm::factory()->create();
+
+        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
+            'course_id' => $newCourse->id,
+            'academic_term_id' => $newTerm->id,
+            'capacity' => 50,
+        ]);
+
+        $response->assertOk();
+
+        // Assert that capacity changed, but course and term did NOT change
+        $this->assertDatabaseHas('course_offerings', [
+            'id' => $offering->id,
+            'capacity' => 50,
+            'course_id' => $offering->course_id,
+            'academic_term_id' => $offering->academic_term_id,
+        ]);
+    }
+
     public function test_update_capacity_below_current_enrollment_returns_422(): void
     {
         $this->actingAsAdministrator();
         $offering = CourseOffering::factory()->create(['capacity' => 40]);
 
-        $program = \App\Models\Program::factory()->create();
+        $program = Program::factory()->create();
         Enrollment::factory()->count(35)->recycle($program)->create(['course_offering_id' => $offering->id]);
 
         $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", array_merge($offering->toArray(), [

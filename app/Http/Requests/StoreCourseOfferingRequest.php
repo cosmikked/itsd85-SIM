@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\AcademicTerm;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +20,7 @@ class StoreCourseOfferingRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -28,11 +29,11 @@ class StoreCourseOfferingRequest extends FormRequest
             'academic_term_id' => ['required', 'integer', 'exists:academic_terms,id'],
             'instructor_id' => ['required', 'integer', 'exists:users,id'],
             'section' => [
-                'required', 
+                'required',
                 'string',
                 Rule::unique('course_offerings')->where(function ($query) {
                     return $query->where('course_id', $this->course_id)
-                                 ->where('academic_term_id', $this->academic_term_id);
+                        ->where('academic_term_id', $this->academic_term_id);
                 }),
             ],
             'schedule' => ['required', 'string'],

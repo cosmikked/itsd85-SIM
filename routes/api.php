@@ -29,6 +29,6 @@ Route::prefix('/v1')->group(function () {
     Route::apiResource('courses', CourseController::class)->middleware('auth:sanctum');
     Route::apiResource('academic-terms', AcademicTermController::class)->middleware('auth:sanctum');
     Route::apiResource('students', StudentController::class)->middleware('auth:sanctum');
-    Route::apiResource('course-offerings', CourseOfferingController::class)->middleware('auth:sanctum'); 
+    Route::apiResource('course-offerings', CourseOfferingController::class)->middleware('auth:sanctum');
 
 });

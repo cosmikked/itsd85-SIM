@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,20 +19,18 @@ class UpdateCourseOfferingRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'course_id' => ['sometimes', 'integer', 'exists:courses,id'],
-            'academic_term_id' => ['sometimes', 'integer', 'exists:academic_terms,id'],
             'instructor_id' => ['sometimes', 'integer', 'exists:users,id'],
             'section' => [
-                'sometimes', 
+                'sometimes',
                 'string',
                 Rule::unique('course_offerings')->where(function ($query) {
-                    return $query->where('course_id', $this->input('course_id', $this->course_offering->course_id))
-                                 ->where('academic_term_id', $this->input('academic_term_id', $this->course_offering->academic_term_id));
+                    return $query->where('course_id', $this->course_offering->course_id)
+                        ->where('academic_term_id', $this->course_offering->academic_term_id);
                 })->ignore($this->course_offering),
             ],
             'schedule' => ['sometimes', 'string'],
