@@ -711,3 +711,73 @@ Once Programs is fully green, bring `login` and `me` in line with 4.1 so the who
 > 4. The two unchecked Phase 2 constraint tests (`student_number` uniqueness, duplicate enrollment) are still open — see the Phase 2 note above. Still not a blocker, but circle back before Phase 9.
 
 Come back once you're ready and I'll expand **Phase 5 — Academic Transactions** — Course Offerings, Enrollments, Grades and the Academic Record, where the cross-table rules (capacity, duplicate enrollment, grade ranges) live.
+---
+
+## Phase 5 — Academic Transactions
+
+**Checkpoint (spec §19):** Relationships and domain operations work.
+
+This phase handles the core transactions of the school: scheduling classes (Course Offerings), putting students in them (Enrollments), grading them (Grades), and viewing the result (Academic Record). Unlike Phase 4 where each resource was independent, these are heavily intertwined and require cross-table validation (e.g. checking capacity, preventing duplicates, validating grade ranges).
+
+**Note on Authorization:** Just like Phase 4, we are *not* building role-based restrictions yet (that's Phase 7). Every endpoint here just requires a valid Sanctum token. We are, however, enforcing *business logic* (like "a grade must reference a valid enrollment").
+
+### 5.1 Course Offerings
+
+- **Endpoints:** `GET/POST /api/v1/course-offerings`, `GET/PUT/PATCH/DELETE /api/v1/course-offerings/{id}`
+- **Validations to build:** `course_id`, `academic_term_id`, `instructor_id` must exist. `section`, `schedule`, `capacity` required. `(course_id, academic_term_id, section)` must be unique. 
+- **TDD Sequence:**
+  1. Create `CourseOfferingApiTest`.
+  2. Test a successful `POST` with a valid instructor user.
+  3. Test the unique constraint: creating a second offering with the same course, term, and section should return `422`.
+  4. Test that `DELETE` works, but returns `409 Conflict` if the offering has enrollments.
+
+### 5.2 Enrollments
+
+- **Endpoints:** `GET/POST /api/v1/enrollments`, `GET/PATCH/DELETE /api/v1/enrollments/{id}`
+- **Validations to build:** `student_id` and `course_offering_id` must exist. The pair must be unique (a student can't enroll in the same section twice). The offering's `status` should be `open` and `capacity` should not be exceeded. (Note: As decided, only Admins/Registrars create enrollments, though we enforce this role restriction via app logic in Phase 7; for now, the endpoints just require authentication).
+- **TDD Sequence:**
+  1. Create `EnrollmentApiTest`.
+  2. Test successful enrollment creation.
+  3. Test duplicate prevention: enrolling the same student in the same offering twice returns `422` (or `409`).
+  4. Test capacity: enrolling a student when the offering is full returns a validation error.
+  5. Test that `DELETE` does **not** hard-delete the row (which would cascade-delete grades), but instead updates the enrollment `status` to `dropped`.
+
+### 5.3 Grades
+
+- **Endpoints:** `GET/POST /api/v1/grades`, `GET/PUT/PATCH /api/v1/grades/{id}`
+- **Validations & Logic to build:**
+  - `enrollment_id` is required and unique.
+  - The client only sends raw scores (e.g., `midterm_raw_score`, `finalterm_raw_score`, `re_exam_raw_score`).
+  - **Laravel computes the final grade:** `final_raw_score` = (1/3 * midterm) + (2/3 * final).
+  - **Unified Remarks:** Laravel determines the `remarks` column. If a raw score is missing, it's `INCOMPLETE`. If `final_raw_score` is 30.00-49.99, it's `CONDITIONAL`. Otherwise, query `grade_scales` for the equivalent grade and PASSED/FAILED remark.
+  - Re-exams (`re_exam_raw_score`) populate alongside the original grades for auditing.
+- **TDD Sequence:**
+  1. Create `GradeApiTest`.
+  2. Test successful grade creation: submitting raw scores correctly calculates the `final_raw_score`, looks up the equivalent grades in `grade_scales`, and sets the correct `remarks` (PASSED/FAILED).
+  3. Test INCOMPLETE: Submitting only a midterm score (null final) sets the `remarks` to `INCOMPLETE`.
+  4. Test CONDITIONAL: Submitting raw scores that compute to a 45.00 sets the `remarks` to `CONDITIONAL`.
+  5. Test that out-of-range scores (e.g. 105) return `422`.
+  6. Test that attempting to grade a `dropped` enrollment returns `422`.
+
+### 5.4 Nested Routes & Academic Record
+
+- **Endpoints:**
+  - `GET /api/v1/students/{id}/enrollments`
+  - `GET /api/v1/course-offerings/{id}/students`
+  - `GET /api/v1/students/{id}/grades`
+  - `GET /api/v1/students/{id}/academic-record`
+- **What to build:** The first three are just filtered list views. The `academic-record` is a special aggregate endpoint that fetches a student's enrollments and grades, grouped by `academic_term_id`.
+- **TDD Sequence:**
+  1. Create `AcademicRecordApiTest` (or add to `StudentApiTest`).
+  2. Seed a student with enrollments across two different academic terms.
+  3. Hit the `academic-record` endpoint and assert the JSON structure is grouped correctly by term.
+
+### Phase 5 checklist
+
+- [ ] `CourseOffering` endpoints built and fully tested (including unique section constraint)
+- [ ] `Enrollment` endpoints built and fully tested (including duplicate prevention, capacity checks, and "dropped" status on delete)
+- [ ] `Grade` endpoints built and fully tested (including range validation, 1/3 + 2/3 computation, and unified remarks)
+- [ ] Nested resource routes (`/students/{id}/enrollments`, etc.) built and tested
+- [ ] `Academic Record` endpoint aggregates data grouped by term, tested with a multi-term student
+- [ ] `php artisan test` is green; `vendor/bin/pint --dirty --format agent` is clean
+

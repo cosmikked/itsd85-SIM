@@ -16,7 +16,6 @@ return new class extends Migration
             $table->decimal('min_score', 5, 2);
             $table->decimal('max_score', 5, 2);
             $table->decimal('grade_point', 3, 2)->unique();
-            $table->enum('remarks', ['PASSED', 'FAILED', 'CONDITIONAL']);
             $table->timestamps();
         });
     }

@@ -14,14 +14,26 @@ return new class extends Migration
         Schema::create('grades', function (Blueprint $table) {
             $table->id();
             $table->foreignId('enrollment_id')->unique()->constrained()->cascadeOnDelete();
+            
+            // Midterm
             $table->decimal('midterm_raw_score', 5, 2)->nullable();
-            $table->foreignId('midterm_grade_scale_id')->nullable()->constrained('grade_scales')->restrictOnDelete();
+            $table->decimal('midterm_equivalent_grade', 3, 2)->nullable();
+            
+            // Finalterm
+            $table->decimal('finalterm_raw_score', 5, 2)->nullable();
+            $table->decimal('finalterm_equivalent_grade', 3, 2)->nullable(); 
+            
+            // Computed Final
             $table->decimal('final_raw_score', 5, 2)->nullable();
-            $table->foreignId('final_grade_scale_id')->nullable()->constrained('grade_scales')->restrictOnDelete();
+            $table->decimal('final_equivalent_grade', 3, 2)->nullable();
+            
+            // Re-exam
+            $table->decimal('re_exam_raw_score', 5, 2)->nullable();
+            $table->decimal('re_exam_equivalent_grade', 3, 2)->nullable();
 
-            // for cases if student has INCOMPLETE grade 
-            // happens when midterm or final grade is null 
-            $table->string('status')->nullable();
+            // Unified Remarks/Status (e.g. PASSED, FAILED, CONDITIONAL, INCOMPLETE, DROPPED)
+            $table->string('remarks')->nullable();
+
             $table->timestamps();
         });
     }

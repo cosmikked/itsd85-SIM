@@ -24,10 +24,14 @@ class GradeFactory extends Factory
         return [
             'enrollment_id' => Enrollment::factory(),
             'midterm_raw_score' => null,
-            'midterm_grade_scale_id' => null,
+            'midterm_equivalent_grade' => null,
+            'finalterm_raw_score' => null,
+            'finalterm_equivalent_grade' => null,
             'final_raw_score' => null,
-            'final_grade_scale_id' => null,
-            'status' => null,
+            'final_equivalent_grade' => null,
+            're_exam_raw_score' => null,
+            're_exam_equivalent_grade' => null,
+            'remarks' => null,
         ];
     }
 }
