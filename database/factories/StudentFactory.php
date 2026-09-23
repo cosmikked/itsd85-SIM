@@ -25,8 +25,11 @@ class StudentFactory extends Factory
             'last_name' => fake()->lastName(),
             'suffix' => fake()->optional(0.1)->randomElement(['Jr.', 'Sr.', 'II', 'III']),
             'birth_date' => fake()->dateTimeBetween('-25 years', '-16 years'),
-            'email' => fake()->optional()->safeEmail(),
-            'contact_number' => fake()->optional()->phoneNumber(),
+            'email' => fake()->unique()->safeEmail(),
+            // numerify() with a fixed digit template, rather than phoneNumber() (whose
+            // few locale formats collide well before Faker's unique() retry limit once
+            // a test suite creates more than a couple dozen students).
+            'contact_number' => fake()->unique()->numerify('09#########'),
             'address' => fake()->optional()->address(),
             'program_id' => Program::factory(),
             'year_level' => fake()->numberBetween(1, 4),
