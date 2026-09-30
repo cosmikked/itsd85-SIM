@@ -226,13 +226,41 @@ class CourseOfferingApiTest extends TestCase
         $offering = CourseOffering::factory()->create(['capacity' => 40]);
 
         $program = Program::factory()->create();
-        Enrollment::factory()->count(35)->recycle($program)->create(['course_offering_id' => $offering->id]);
+        // Since we refactored capacity checking to only count 'enrolled' status, explicitly set it
+        Enrollment::factory()->count(35)->recycle($program)->create([
+            'course_offering_id' => $offering->id,
+            'status' => 'enrolled',
+        ]);
 
         $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", array_merge($offering->toArray(), [
             'capacity' => 30, // Less than the 35 enrolled students
         ]));
 
         $this->assertValidationFailed($response, ['capacity']);
+    }
+
+    public function test_update_course_offering_capacity_ignores_dropped_students(): void
+    {
+        $this->actingAsAdministrator();
+        $offering = CourseOffering::factory()->create(['capacity' => 40]);
+        $program = Program::factory()->create();
+
+        // 35 dropped, 5 enrolled
+        Enrollment::factory()->count(35)->recycle($program)->create([
+            'course_offering_id' => $offering->id,
+            'status' => 'dropped',
+        ]);
+        Enrollment::factory()->count(5)->recycle($program)->create([
+            'course_offering_id' => $offering->id,
+            'status' => 'enrolled',
+        ]);
+
+        // Attempt to lower capacity to 10. (Should pass because only 5 are actually 'enrolled')
+        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", array_merge($offering->toArray(), [
+            'capacity' => 10,
+        ]));
+
+        $response->assertOk();
     }
 
     public function test_destroy_returns_204_and_deletes_the_course_offering(): void

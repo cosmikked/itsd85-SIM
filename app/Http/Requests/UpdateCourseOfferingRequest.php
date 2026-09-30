@@ -47,7 +47,7 @@ class UpdateCourseOfferingRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             if ($this->has('capacity')) {
-                $currentEnrollments = $this->course_offering->enrollments()->count();
+                $currentEnrollments = $this->course_offering->enrollments()->where('status', 'enrolled')->count();
                 if ($this->capacity < $currentEnrollments) {
                     $validator->errors()->add('capacity', "Capacity cannot be lower than the current number of enrolled students ({$currentEnrollments}).");
                 }

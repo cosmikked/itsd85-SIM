@@ -6,6 +6,7 @@ use App\Models\AcademicTerm;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreCourseOfferingRequest extends FormRequest
 {
@@ -46,7 +47,7 @@ class StoreCourseOfferingRequest extends FormRequest
     /**
      * Configure the validator instance.
      */
-    public function withValidator($validator)
+    public function withValidator(Validator $validator): void
     {
         $validator->after(function ($validator) {
             $term = AcademicTerm::find($this->academic_term_id);
