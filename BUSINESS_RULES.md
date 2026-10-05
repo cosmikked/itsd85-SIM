@@ -44,3 +44,15 @@ To maintain referential integrity and historical records, the system prevents th
 * **Students** cannot be deleted if they have any enrollment history. (`app/Http/Controllers/StudentController.php`)
 * **Course Offerings** cannot be deleted if any students have ever enrolled in them. (`app/Http/Controllers/CourseOfferingController.php`)
 * **Enrollments** cannot be hard-deleted if their status is `completed`, protecting finalized academic records. (`app/Http/Controllers/EnrollmentController.php`)
+
+## 6. Grades & Academic Records
+* **Strict Grading Windows:** Instructors can only submit or update grades before the deadline defined on the associated Academic Term (`midterm_grading_deadline`, `final_grading_deadline`).
+  * Enforced in: `app/Http/Requests/UpdateSingleGradeRequest.php`, `app/Http/Requests/UpdateBulkGradeRequest.php`
+* **Automated Computations & Remarks:** Final grades are computed automatically using a strict formula (1/3 Midterm + 2/3 Finalterm). Remarks (Passed, Failed, Incomplete, Removal) are completely system-generated based on these values to prevent manual tampering or typos.
+  * Enforced in: `app/Services/GradeCalculatorService.php`
+* **Removal/Re-exam Eligibility:** A student is only eligible for a re-exam (Removal) if their computed final equivalent grade is exactly 4.0. If they pass the re-exam (raw score >= 50), the grade caps at 3.0. Otherwise, it drops to a 5.0 (Failed).
+  * Enforced in: `app/Services/GradeCalculatorService.php`
+* **Incomplete (INC) Lifecycle & Expiry:** Students marked as 'Incomplete' are given until the term's `inc_completion_deadline` to finish requirements. If the deadline passes without an update, an automated daily job flips their grade to a 5.0 (Failed).
+  * Enforced in: `app/Console/Commands/ExpireIncGradesCommand.php`
+* **Automatic Grade Nullification on Drop:** If a student drops or withdraws from a course, their raw scores are wiped. If they drop *before* the midterm deadline, they receive a 'W' (Withdrawn). If they drop *after* the midterm deadline, they receive a 'W' if they were passing, or a '5.0' if they were failing.
+  * Enforced in: `app/Observers/EnrollmentObserver.php`, `app/Services/GradeCalculatorService.php`

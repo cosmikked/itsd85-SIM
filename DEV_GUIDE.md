@@ -774,7 +774,7 @@ This phase handles the core transactions of the school: scheduling classes (Cour
 
 ### Phase 5 checklist
 
-- [ ] `CourseOffering` endpoints built and fully tested (including unique section constraint)
+- [x] `CourseOffering` endpoints built and fully tested (including unique section constraint)
 - [ ] `Enrollment` endpoints built and fully tested (including duplicate prevention, capacity checks, and "dropped" status on delete)
 - [ ] `Grade` endpoints built and fully tested (including range validation, 1/3 + 2/3 computation, and unified remarks)
 - [ ] Nested resource routes (`/students/{id}/enrollments`, etc.) built and tested
