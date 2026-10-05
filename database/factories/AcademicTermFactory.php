@@ -28,6 +28,9 @@ class AcademicTermFactory extends Factory
             'start_date' => $startDate,
             'end_date' => $endDate,
             'status' => fake()->randomElement(['active', 'inactive']),
+            'midterm_grading_deadline' => $startDate->copy()->addMonths(2),
+            'final_grading_deadline' => $endDate->copy()->addDays(14),
+            'inc_completion_deadline' => $endDate->copy()->addYear(),
         ];
     }
 }

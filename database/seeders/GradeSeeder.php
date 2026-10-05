@@ -21,10 +21,10 @@ class GradeSeeder extends Seeder
 
         foreach ($enrollments as $index => $enrollment) {
             if ($enrollment->status === 'dropped') {
-                // Dropped enrollments get a DROPPED grade record
+                // Dropped enrollments get a Dropped grade record
                 Grade::factory()->create([
                     'enrollment_id' => $enrollment->id,
-                    'remarks' => 'DROPPED',
+                    'remarks' => 'Dropped',
                 ]);
 
                 continue;
@@ -32,9 +32,14 @@ class GradeSeeder extends Seeder
 
             if ($index % 5 === 0) {
                 // Every 5th grade is incomplete — no scores, INCOMPLETE remark
+                $enrollment->loadMissing('courseOffering.academicTerm');
+                $term = $enrollment->courseOffering->academicTerm;
+
                 Grade::factory()->create([
                     'enrollment_id' => $enrollment->id,
-                    'remarks' => 'INCOMPLETE',
+                    'is_inc' => true,
+                    'inc_expiration_date' => $term->inc_completion_deadline,
+                    'remarks' => 'Incomplete',
                 ]);
 
                 continue;
@@ -49,9 +54,9 @@ class GradeSeeder extends Seeder
             $finalRawScore = (1 / 3 * $midtermRawScore) + (2 / 3 * $finaltermRawScore);
             $finalScale = $this->matchingGradeScale($finalRawScore);
 
-            $remarks = ($finalScale?->grade_point <= 3.00) ? 'PASSED' : 'FAILED';
+            $remarks = ($finalScale?->grade_point <= 3.00) ? 'Passed' : 'Failed';
             if ($finalRawScore >= 30.00 && $finalRawScore <= 49.99) {
-                $remarks = 'CONDITIONAL';
+                $remarks = 'Conditional';
             }
 
             Grade::factory()->create([

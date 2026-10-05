@@ -40,7 +40,7 @@ This document summarizes the agreed-upon business rules, logic, and implementati
 ## 7. Automatic Remarks
 - **Auto-generation**: The backend fully manages the `remarks` column based on the computed grades and statuses. Instructors do not manually input remarks.
   - `1.0` - `3.0` -> 'Passed'
-  - `4.0` -> 'Removal'
+  - `4.0` -> 'Conditional'
   - `5.0` -> 'Failed'
   - `is_inc=true` -> 'Incomplete'
   - Dropped logic -> 'Withdrawn' or 'Failed'

@@ -310,7 +310,7 @@ class CourseApiTest extends TestCase
         $response = $this->deleteJson("/api/v1/courses/{$course->id}");
 
         $response->assertNoContent();
-        $this->assertModelMissing($course);
+        $this->assertSoftDeleted($course);
     }
 
     public function test_destroy_returns_409_when_the_course_has_course_offerings(): void

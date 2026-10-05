@@ -290,7 +290,7 @@ class EnrollmentApiTest extends TestCase
         $response = $this->deleteJson("/api/v1/enrollments/{$enrollment->id}");
 
         $response->assertNoContent();
-        $this->assertDatabaseMissing('enrollments', ['id' => $enrollment->id]);
+        $this->assertSoftDeleted('enrollments', ['id' => $enrollment->id]);
     }
 
     public function test_destroy_returns_409_if_enrollment_is_completed(): void

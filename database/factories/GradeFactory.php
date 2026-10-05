@@ -31,6 +31,8 @@ class GradeFactory extends Factory
             'final_equivalent_grade' => null,
             're_exam_raw_score' => null,
             're_exam_equivalent_grade' => null,
+            'is_inc' => false,
+            'inc_expiration_date' => null,
             'remarks' => null,
         ];
     }

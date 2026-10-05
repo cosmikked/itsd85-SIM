@@ -344,7 +344,7 @@ class StudentApiTest extends TestCase
         $response = $this->deleteJson("/api/v1/students/{$student->id}");
 
         $response->assertNoContent();
-        $this->assertModelMissing($student);
+        $this->assertSoftDeleted($student);
     }
 
     public function test_destroy_returns_409_when_the_student_has_enrollments(): void

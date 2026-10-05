@@ -405,7 +405,7 @@ class AcademicTermApiTest extends TestCase
         $response = $this->deleteJson("/api/v1/academic-terms/{$academicTerm->id}");
 
         $response->assertNoContent();
-        $this->assertModelMissing($academicTerm);
+        $this->assertSoftDeleted($academicTerm);
     }
 
     public function test_destroy_returns_409_when_the_academic_term_has_course_offerings(): void

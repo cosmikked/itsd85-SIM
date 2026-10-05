@@ -33,7 +33,7 @@ Work top to bottom within a phase. Don't skip ahead to the next phase's tests un
 - [ ] **Phase 2 — Database Design**: ERD, migrations, constraints, relationships, seeders *(expanded below)*
 - [x] **Phase 3 — Authentication**: login, password hashing, protected routes, current user *(complete)*
 - [x] **Phase 4 — Core Resources**: Programs, Courses, Academic Terms, Students (CRUD + validation) *(complete)*
-- [ ] **Phase 5 — Academic Transactions**: Course Offerings, Enrollments, Grades, Academic Record
+- [x] **Phase 5 — Academic Transactions**: Course Offerings, Enrollments, Grades, Academic Record
 - [ ] **Phase 6 — Advanced API Features**: search, filtering, sorting, pagination, consistent errors
 - [ ] **Phase 7 — Authorization**: role-based + object-level access rules
 - [ ] **Phase 8 — Documentation**: README, Scramble/OpenAPI, ERD, Postman collection
@@ -775,9 +775,9 @@ This phase handles the core transactions of the school: scheduling classes (Cour
 ### Phase 5 checklist
 
 - [x] `CourseOffering` endpoints built and fully tested (including unique section constraint)
-- [ ] `Enrollment` endpoints built and fully tested (including duplicate prevention, capacity checks, and "dropped" status on delete)
-- [ ] `Grade` endpoints built and fully tested (including range validation, 1/3 + 2/3 computation, and unified remarks)
-- [ ] Nested resource routes (`/students/{id}/enrollments`, etc.) built and tested
-- [ ] `Academic Record` endpoint aggregates data grouped by term, tested with a multi-term student
-- [ ] `php artisan test` is green; `vendor/bin/pint --dirty --format agent` is clean
+- [x] `Enrollment` endpoints built and fully tested (including duplicate prevention, capacity checks, and "dropped" status on delete)
+- [x] `Grade` endpoints built and fully tested (including range validation, 1/3 + 2/3 computation, and unified remarks)
+- [x] Nested resource routes (`/students/{id}/enrollments`, etc.) built and tested
+- [x] `Academic Record` endpoint aggregates data grouped by term, tested with a multi-term student
+- [x] `php artisan test` is green; `vendor/bin/pint --dirty --format agent` is clean
 

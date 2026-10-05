@@ -227,7 +227,7 @@ class ProgramApiTest extends TestCase
         $response->dump();
 
         $response->assertNoContent();
-        $this->assertModelMissing($program);
+        $this->assertSoftDeleted($program);
     }
 
     public function test_destroy_returns_409_when_the_program_has_students(): void
