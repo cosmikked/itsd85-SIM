@@ -379,7 +379,7 @@ class CourseApiTest extends TestCase
 
     public function test_index_can_sort_results_by_multiple_columns(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->administrator()->create());
 
         Course::query()->delete();
         Course::factory()->create(['units' => 3, 'course_title' => 'Apple', 'course_code' => 'A1']);

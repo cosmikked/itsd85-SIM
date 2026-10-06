@@ -258,7 +258,7 @@ class GradeApiTest extends TestCase
 
     public function test_index_can_sort_results_by_multiple_columns(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->administrator()->create());
 
         Grade::query()->delete();
         Grade::factory()->create(['final_equivalent_grade' => 3.0, 'remarks' => 'Banana']);

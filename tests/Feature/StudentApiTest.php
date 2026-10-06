@@ -433,7 +433,7 @@ class StudentApiTest extends TestCase
 
     public function test_index_can_sort_results_by_multiple_columns(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->administrator()->create());
 
         Student::query()->delete();
         Student::factory()->create(['year_level' => 1, 'last_name' => 'Alpha']);

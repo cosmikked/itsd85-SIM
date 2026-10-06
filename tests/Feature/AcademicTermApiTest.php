@@ -496,7 +496,7 @@ class AcademicTermApiTest extends TestCase
 
     public function test_index_can_sort_results_by_multiple_columns(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->administrator()->create());
 
         AcademicTerm::query()->delete();
         AcademicTerm::factory()->create(['academic_year' => '2024', 'term' => 'Second Semester']);
@@ -516,4 +516,3 @@ class AcademicTermApiTest extends TestCase
         $this->assertEquals('Second Semester', (string) $items[2]['term']);
     }
 }
-

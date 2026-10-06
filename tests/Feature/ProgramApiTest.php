@@ -299,7 +299,7 @@ class ProgramApiTest extends TestCase
 
     public function test_index_can_sort_results_by_multiple_columns(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->administrator()->create());
 
         Program::query()->delete();
         Program::factory()->create(['code' => 'P2', 'status' => 'inactive', 'name' => 'Banana']);
