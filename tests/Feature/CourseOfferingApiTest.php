@@ -70,6 +70,33 @@ class CourseOfferingApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_accepts_per_page_parameter(): void
+    {
+        $this->actingAsAdministrator();
+        $term = AcademicTerm::factory()->create();
+        CourseOffering::factory()->count(16)->recycle($term)->create();
+
+        $response = $this->getJson('/api/v1/course-offerings?per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.per_page', 5)
+            ->assertJsonPath('meta.total', 16);
+    }
+
+    public function test_index_can_filter_by_exact_matches(): void
+    {
+        $this->actingAsAdministrator();
+        $term = AcademicTerm::factory()->create();
+        $course = Course::factory()->create();
+        CourseOffering::factory()->create(['status' => 'open', 'academic_term_id' => $term->id, 'course_id' => $course->id, 'section' => 'A']);
+        CourseOffering::factory()->create(['status' => 'closed', 'academic_term_id' => $term->id, 'course_id' => $course->id, 'section' => 'B']);
+
+        $response = $this->getJson('/api/v1/course-offerings?status=open&academic_term_id='.$term->id.'&course_id='.$course->id);
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_show_returns_200_with_the_course_offering(): void
     {
         $this->actingAsAdministrator();

@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCourseOfferingRequest;
 use App\Http\Requests\UpdateCourseOfferingRequest;
 use App\Http\Resources\CourseOfferingResource;
 use App\Models\CourseOffering;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class CourseOfferingController extends Controller
@@ -13,9 +14,10 @@ class CourseOfferingController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $offerings = CourseOffering::paginate(15);
+        $perPage = $request->query('per_page', 15);
+        $offerings = CourseOffering::paginate($perPage);
 
         return CourseOfferingResource::collection($offerings)->additional([
             'success' => true,

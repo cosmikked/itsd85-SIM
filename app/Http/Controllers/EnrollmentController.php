@@ -6,15 +6,17 @@ use App\Http\Requests\StoreEnrollmentRequest;
 use App\Http\Requests\UpdateEnrollmentRequest;
 use App\Http\Resources\EnrollmentResource;
 use App\Models\Enrollment;
+use Illuminate\Http\Request;
 
 class EnrollmentController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $enrollments = Enrollment::paginate(15);
+        $perPage = $request->query('per_page', 15);
+        $enrollments = Enrollment::paginate($perPage);
 
         return EnrollmentResource::collection($enrollments)->additional([
             'success' => true,

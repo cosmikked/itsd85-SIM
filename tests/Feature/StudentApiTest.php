@@ -106,6 +106,44 @@ class StudentApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_accepts_per_page_parameter(): void
+    {
+        $this->actingAsAdministrator();
+        $program = Program::factory()->create();
+        Student::factory()->count(16)->create(['program_id' => $program->id]);
+
+        $response = $this->getJson('/api/v1/students?per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.per_page', 5)
+            ->assertJsonPath('meta.total', 16);
+    }
+
+    public function test_index_can_search_by_name_or_student_number(): void
+    {
+        $this->actingAsAdministrator();
+        Student::factory()->create(['first_name' => 'John', 'last_name' => 'Doe', 'student_number' => '1111']);
+        Student::factory()->create(['first_name' => 'Jane', 'last_name' => 'Target', 'student_number' => '2222']);
+        Student::factory()->create(['first_name' => 'Alice', 'last_name' => 'Smith', 'student_number' => 'TARGET33']);
+
+        $response = $this->getJson('/api/v1/students?search=target');
+
+        $response->assertOk()->assertJsonCount(2, 'data');
+    }
+
+    public function test_index_can_filter_by_exact_matches(): void
+    {
+        $this->actingAsAdministrator();
+        $program = Program::factory()->create();
+        Student::factory()->create(['status' => 'active', 'program_id' => $program->id, 'year_level' => 1]);
+        Student::factory()->create(['status' => 'inactive', 'program_id' => $program->id, 'year_level' => 2]);
+
+        $response = $this->getJson('/api/v1/students?status=active&year_level=1&program_id='.$program->id);
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_show_returns_200_with_the_student(): void
     {
         $this->actingAsAdministrator();

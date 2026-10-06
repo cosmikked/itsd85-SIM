@@ -70,6 +70,45 @@ class ProgramApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_accepts_per_page_parameter(): void
+    {
+        $this->actingAsAdministrator();
+        Program::query()->insert(array_map(
+            fn (int $number): array => ['code' => "PRG{$number}", 'name' => "Program {$number}", 'status' => 'active'],
+            range(1, 16),
+        ));
+
+        $response = $this->getJson('/api/v1/programs?per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.per_page', 5)
+            ->assertJsonPath('meta.total', 16);
+    }
+
+    public function test_index_can_search_by_name_or_code(): void
+    {
+        $this->actingAsAdministrator();
+        Program::factory()->create(['code' => 'XYZ', 'name' => 'Target Program']);
+        Program::factory()->create(['code' => 'TARGET', 'name' => 'Other Program']);
+        Program::factory()->create(['code' => 'ABC', 'name' => 'Should Not Match']);
+
+        $response = $this->getJson('/api/v1/programs?search=target');
+
+        $response->assertOk()->assertJsonCount(2, 'data');
+    }
+
+    public function test_index_can_filter_by_status(): void
+    {
+        $this->actingAsAdministrator();
+        Program::factory()->create(['status' => 'active']);
+        Program::factory()->create(['status' => 'inactive']);
+
+        $response = $this->getJson('/api/v1/programs?status=active');
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_show_returns_200_with_the_program(): void
     {
         $this->actingAsAdministrator();

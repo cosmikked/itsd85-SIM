@@ -112,6 +112,39 @@ class AcademicTermApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_accepts_per_page_parameter(): void
+    {
+        $this->actingAsAdministrator();
+        AcademicTerm::query()->insert(array_map(
+            fn (int $year): array => [
+                'academic_year' => sprintf('%d-%d', $year, $year + 1),
+                'term' => 'First Semester',
+                'start_date' => sprintf('%d-08-03', $year),
+                'end_date' => sprintf('%d-12-18', $year),
+                'status' => 'active',
+            ],
+            range(2000, 2015),
+        ));
+
+        $response = $this->getJson('/api/v1/academic-terms?per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.per_page', 5)
+            ->assertJsonPath('meta.total', 16);
+    }
+
+    public function test_index_can_filter_by_exact_matches(): void
+    {
+        $this->actingAsAdministrator();
+        AcademicTerm::factory()->create(['status' => 'active', 'academic_year' => '2023-2024', 'term' => 'First Semester']);
+        AcademicTerm::factory()->create(['status' => 'inactive', 'academic_year' => '2023-2024', 'term' => 'Second Semester']);
+
+        $response = $this->getJson('/api/v1/academic-terms?status=active&academic_year=2023-2024');
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_show_returns_200_with_the_academic_term(): void
     {
         $this->actingAsAdministrator();

@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCourseRequest;
 use App\Http\Requests\UpdateCourseRequest;
 use App\Http\Resources\CourseResource;
 use App\Models\Course;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class CourseController extends Controller
@@ -13,9 +14,10 @@ class CourseController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $courses = Course::paginate(15);
+        $perPage = $request->query('per_page', 15);
+        $courses = Course::paginate($perPage);
 
         return CourseResource::collection($courses)->additional([
             'success' => true,

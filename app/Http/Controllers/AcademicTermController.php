@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAcademicTermRequest;
 use App\Http\Requests\UpdateAcademicTermRequest;
 use App\Http\Resources\AcademicTermResource;
 use App\Models\AcademicTerm;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class AcademicTermController extends Controller
@@ -13,9 +14,10 @@ class AcademicTermController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $academicTerms = AcademicTerm::paginate(15);
+        $perPage = $request->query('per_page', 15);
+        $academicTerms = AcademicTerm::paginate($perPage);
 
         return AcademicTermResource::collection($academicTerms)->additional([
             'success' => true,

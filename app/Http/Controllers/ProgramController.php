@@ -6,6 +6,7 @@ use App\Http\Requests\StoreProgramRequest;
 use App\Http\Requests\UpdateProgramRequest;
 use App\Http\Resources\ProgramResource;
 use App\Models\Program;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class ProgramController extends Controller
@@ -13,9 +14,10 @@ class ProgramController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $programs = Program::paginate(15);
+        $perPage = $request->query('per_page', 15);
+        $programs = Program::paginate($perPage);
 
         return ProgramResource::collection($programs)->additional([
             'success' => true,

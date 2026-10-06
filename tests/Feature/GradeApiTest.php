@@ -6,6 +6,7 @@ use App\Models\AcademicTerm;
 use App\Models\CourseOffering;
 use App\Models\Enrollment;
 use App\Models\Grade;
+use App\Models\Program;
 use App\Models\User;
 use Database\Seeders\GradeScaleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,6 +16,53 @@ use Tests\TestCase;
 class GradeApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_index_returns_15_grades_per_page(): void
+    {
+        $this->actingAsAdministrator();
+        $term = AcademicTerm::factory()->create([
+            'midterm_grading_deadline' => now()->addDays(10),
+            'final_grading_deadline' => now()->addDays(10),
+        ]);
+        $program = Program::factory()->create();
+        $offering = CourseOffering::factory()->recycle($term)->create();
+        $enrollments = Enrollment::factory()->count(16)->recycle($offering)->recycle($program)->create();
+
+        foreach ($enrollments as $enrollment) {
+            Grade::factory()->create(['enrollment_id' => $enrollment->id]);
+        }
+
+        $response = $this->getJson('/api/v1/grades');
+
+        $response->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 15)
+            ->assertJsonPath('meta.total', 16);
+    }
+
+    public function test_index_accepts_per_page_parameter(): void
+    {
+        $this->actingAsAdministrator();
+        $term = AcademicTerm::factory()->create([
+            'midterm_grading_deadline' => now()->addDays(10),
+            'final_grading_deadline' => now()->addDays(10),
+        ]);
+        $program = Program::factory()->create();
+        $offering = CourseOffering::factory()->recycle($term)->create();
+        $enrollments = Enrollment::factory()->count(16)->recycle($offering)->recycle($program)->create();
+
+        foreach ($enrollments as $enrollment) {
+            Grade::factory()->create(['enrollment_id' => $enrollment->id]);
+        }
+
+        $response = $this->getJson('/api/v1/grades?per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.per_page', 5)
+            ->assertJsonPath('meta.total', 16);
+    }
 
     private function actingAsAdministrator(): void
     {
@@ -47,6 +95,20 @@ class GradeApiTest extends TestCase
         ]);
 
         return [$term, $instructor, $offering, $enrollment];
+    }
+
+    public function test_index_can_filter_by_exact_matches(): void
+    {
+        $this->actingAsAdministrator();
+        $enrollment = Enrollment::factory()->create();
+        Grade::factory()->create(['enrollment_id' => $enrollment->id, 'is_inc' => true]);
+
+        $enrollment2 = Enrollment::factory()->create();
+        Grade::factory()->create(['enrollment_id' => $enrollment2->id, 'is_inc' => false]);
+
+        $response = $this->getJson('/api/v1/grades?is_inc=1&enrollment_id='.$enrollment->id);
+
+        $response->assertOk()->assertJsonCount(1, 'data');
     }
 
     public function test_equivalent_grade_is_computed_correctly_when_storing_raw_scores(): void

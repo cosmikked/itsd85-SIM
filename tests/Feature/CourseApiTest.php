@@ -91,6 +91,42 @@ class CourseApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_accepts_per_page_parameter(): void
+    {
+        $this->actingAsAdministrator();
+        Course::factory()->count(16)->create();
+
+        $response = $this->getJson('/api/v1/courses?per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.per_page', 5)
+            ->assertJsonPath('meta.total', 16);
+    }
+
+    public function test_index_can_search_by_title_or_code(): void
+    {
+        $this->actingAsAdministrator();
+        Course::factory()->create(['course_code' => 'TARGET101', 'course_title' => 'Math']);
+        Course::factory()->create(['course_code' => 'ENG101', 'course_title' => 'Target English']);
+        Course::factory()->create(['course_code' => 'SCI101', 'course_title' => 'Science']);
+
+        $response = $this->getJson('/api/v1/courses?search=target');
+
+        $response->assertOk()->assertJsonCount(2, 'data');
+    }
+
+    public function test_index_can_filter_by_status(): void
+    {
+        $this->actingAsAdministrator();
+        Course::factory()->create(['status' => 'active']);
+        Course::factory()->create(['status' => 'inactive']);
+
+        $response = $this->getJson('/api/v1/courses?status=active');
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_show_returns_200_with_the_course(): void
     {
         $this->actingAsAdministrator();

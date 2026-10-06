@@ -55,4 +55,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $error($e->getMessage() ?: 'Request failed.', $e->getStatusCode());
             }
         });
+
+        $exceptions->render(function (Throwable $e, Request $request) use ($error) {
+            if ($request->is('api/*')) {
+                return $error('Internal Server Error.', 500);
+            }
+        });
     })->create();

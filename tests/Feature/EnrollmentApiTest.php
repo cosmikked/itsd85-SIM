@@ -77,6 +77,38 @@ class EnrollmentApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_accepts_per_page_parameter(): void
+    {
+        $this->actingAsAdministrator();
+        $program = Program::factory()->create();
+        $offering = CourseOffering::factory()->create();
+        Enrollment::factory()->count(16)->recycle($program)->create([
+            'course_offering_id' => $offering->id,
+        ]);
+
+        $response = $this->getJson('/api/v1/enrollments?per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.per_page', 5)
+            ->assertJsonPath('meta.total', 16);
+    }
+
+    public function test_index_can_filter_by_exact_matches(): void
+    {
+        $this->actingAsAdministrator();
+        $program = Program::factory()->create();
+        $student = Student::factory()->recycle($program)->create();
+        $offering = CourseOffering::factory()->create();
+        $offering2 = CourseOffering::factory()->create();
+        Enrollment::factory()->create(['status' => 'enrolled', 'student_id' => $student->id, 'course_offering_id' => $offering->id]);
+        Enrollment::factory()->create(['status' => 'dropped', 'student_id' => $student->id, 'course_offering_id' => $offering2->id]);
+
+        $response = $this->getJson('/api/v1/enrollments?status=enrolled&student_id='.$student->id.'&course_offering_id='.$offering->id);
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_show_returns_200_with_the_enrollment(): void
     {
         $this->actingAsAdministrator();

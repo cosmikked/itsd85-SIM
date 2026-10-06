@@ -8,15 +8,17 @@ use App\Http\Resources\GradeResource;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Services\GradeCalculatorService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class GradeController extends Controller
 {
     public function __construct(private GradeCalculatorService $gradeService) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        $grades = Grade::paginate(15);
+        $perPage = $request->query('per_page', 15);
+        $grades = Grade::paginate($perPage);
 
         return GradeResource::collection($grades)->additional([
             'success' => true,

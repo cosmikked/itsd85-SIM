@@ -6,6 +6,7 @@ use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
 use App\Http\Resources\StudentResource;
 use App\Models\Student;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class StudentController extends Controller
@@ -13,9 +14,10 @@ class StudentController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $students = Student::paginate(15);
+        $perPage = $request->query('per_page', 15);
+        $students = Student::paginate($perPage);
 
         return StudentResource::collection($students)->additional([
             'success' => true,
