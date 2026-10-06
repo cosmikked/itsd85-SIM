@@ -6,18 +6,34 @@ use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
 use App\Http\Resources\StudentResource;
 use App\Models\Student;
+use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class StudentController extends Controller
 {
+    use Sortable;
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $students = Student::paginate($perPage);
+
+        $query = Student::query()
+            ->when($request->query('search'), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('student_number', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->query('program_id'), fn ($q, $program_id) => $q->where('program_id', $program_id))
+            ->when($request->query('year_level'), fn ($q, $year_level) => $q->where('year_level', $year_level));
+
+        $students = $this->applySorting($query, $request)->paginate($perPage);
 
         return StudentResource::collection($students)->additional([
             'success' => true,

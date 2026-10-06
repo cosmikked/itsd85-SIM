@@ -7,6 +7,7 @@ use App\Models\CourseOffering;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Models\Program;
+use App\Models\Student;
 use App\Models\User;
 use Database\Seeders\GradeScaleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -95,6 +96,27 @@ class GradeApiTest extends TestCase
         ]);
 
         return [$term, $instructor, $offering, $enrollment];
+    }
+
+    public function test_index_can_search_by_student_number(): void
+    {
+        $this->actingAsAdministrator();
+
+        $student1 = Student::factory()->create(['student_number' => 'TARGET01']);
+        $enrollment1 = Enrollment::factory()->create(['student_id' => $student1->id]);
+        Grade::factory()->create(['enrollment_id' => $enrollment1->id]);
+
+        $student2 = Student::factory()->create(['student_number' => '12345']);
+        $enrollment2 = Enrollment::factory()->create(['student_id' => $student2->id]);
+        Grade::factory()->create(['enrollment_id' => $enrollment2->id]);
+
+        $student3 = Student::factory()->create(['student_number' => 'TARGET99']);
+        $enrollment3 = Enrollment::factory()->create(['student_id' => $student3->id]);
+        Grade::factory()->create(['enrollment_id' => $enrollment3->id]);
+
+        $response = $this->getJson('/api/v1/grades?search=target');
+
+        $response->assertOk()->assertJsonCount(2, 'data');
     }
 
     public function test_index_can_filter_by_exact_matches(): void
@@ -232,5 +254,27 @@ class GradeApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['midterm_raw_score']);
+    }
+
+    public function test_index_can_sort_results_by_multiple_columns(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        Grade::query()->delete();
+        Grade::factory()->create(['final_equivalent_grade' => 3.0, 'remarks' => 'Banana']);
+        Grade::factory()->create(['final_equivalent_grade' => 1.0, 'remarks' => 'Zebra']);
+        Grade::factory()->create(['final_equivalent_grade' => 3.0, 'remarks' => 'Apple']);
+
+        $response = $this->getJson('/api/v1/grades?sort=-final_equivalent_grade,remarks');
+
+        $response->assertStatus(200);
+
+        $items = $response->json('data');
+        $this->assertGreaterThanOrEqual(3, count($items));
+
+        // Check order of the first 3 items
+        $this->assertEquals('Apple', (string) $items[0]['remarks']);
+        $this->assertEquals('Banana', (string) $items[1]['remarks']);
+        $this->assertEquals('Zebra', (string) $items[2]['remarks']);
     }
 }

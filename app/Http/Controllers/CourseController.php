@@ -6,18 +6,31 @@ use App\Http\Requests\StoreCourseRequest;
 use App\Http\Requests\UpdateCourseRequest;
 use App\Http\Resources\CourseResource;
 use App\Models\Course;
+use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class CourseController extends Controller
 {
+    use Sortable;
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $courses = Course::paginate($perPage);
+
+        $query = Course::query()
+            ->when($request->query('search'), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('course_title', 'like', "%{$search}%")
+                        ->orWhere('course_code', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status));
+
+        $courses = $this->applySorting($query, $request)->paginate($perPage);
 
         return CourseResource::collection($courses)->additional([
             'success' => true,

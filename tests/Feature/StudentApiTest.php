@@ -430,4 +430,26 @@ class StudentApiTest extends TestCase
             ->assertJsonPath('message', 'Validation failed.')
             ->assertJsonValidationErrors($fields);
     }
+
+    public function test_index_can_sort_results_by_multiple_columns(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        Student::query()->delete();
+        Student::factory()->create(['year_level' => 1, 'last_name' => 'Alpha']);
+        Student::factory()->create(['year_level' => 1, 'last_name' => 'Bravo']);
+        Student::factory()->create(['year_level' => 4, 'last_name' => 'Zeta']);
+
+        $response = $this->getJson('/api/v1/students?sort=-year_level,last_name');
+
+        $response->assertStatus(200);
+
+        $items = $response->json('data');
+        $this->assertGreaterThanOrEqual(3, count($items));
+
+        // Check order of the first 3 items
+        $this->assertEquals('Zeta', (string) $items[0]['last_name']);
+        $this->assertEquals('Alpha', (string) $items[1]['last_name']);
+        $this->assertEquals('Bravo', (string) $items[2]['last_name']);
+    }
 }

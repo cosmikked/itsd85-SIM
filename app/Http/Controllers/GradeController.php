@@ -8,17 +8,30 @@ use App\Http\Resources\GradeResource;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Services\GradeCalculatorService;
+use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class GradeController extends Controller
 {
+    use Sortable;
+
     public function __construct(private GradeCalculatorService $gradeService) {}
 
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $grades = Grade::paginate($perPage);
+
+        $query = Grade::query()
+            ->when($request->query('search'), function ($query, $search) {
+                $query->whereHas('enrollment.student', function ($q) use ($search) {
+                    $q->where('student_number', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->has('is_inc'), fn ($q) => $q->where('is_inc', filter_var($request->query('is_inc'), FILTER_VALIDATE_BOOLEAN)))
+            ->when($request->query('enrollment_id'), fn ($q, $enrollment_id) => $q->where('enrollment_id', $enrollment_id));
+
+        $grades = $this->applySorting($query, $request)->paginate($perPage);
 
         return GradeResource::collection($grades)->additional([
             'success' => true,

@@ -6,18 +6,30 @@ use App\Http\Requests\StoreAcademicTermRequest;
 use App\Http\Requests\UpdateAcademicTermRequest;
 use App\Http\Resources\AcademicTermResource;
 use App\Models\AcademicTerm;
+use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class AcademicTermController extends Controller
 {
+    use Sortable;
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $academicTerms = AcademicTerm::paginate($perPage);
+
+        $query = AcademicTerm::query()
+            ->when($request->query('search'), function ($query, $search) {
+                $query->where('academic_year', 'like', "%{$search}%");
+            })
+            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->query('academic_year'), fn ($q, $year) => $q->where('academic_year', $year))
+            ->when($request->query('term'), fn ($q, $term) => $q->where('term', $term));
+
+        $academicTerms = $this->applySorting($query, $request)->paginate($perPage);
 
         return AcademicTermResource::collection($academicTerms)->additional([
             'success' => true,

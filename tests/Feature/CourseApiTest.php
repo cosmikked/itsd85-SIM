@@ -376,4 +376,26 @@ class CourseApiTest extends TestCase
             ->assertJsonPath('message', 'Validation failed.')
             ->assertJsonValidationErrors($fields);
     }
+
+    public function test_index_can_sort_results_by_multiple_columns(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        Course::query()->delete();
+        Course::factory()->create(['units' => 3, 'course_title' => 'Apple', 'course_code' => 'A1']);
+        Course::factory()->create(['units' => 3, 'course_title' => 'Banana', 'course_code' => 'B1']);
+        Course::factory()->create(['units' => 4, 'course_title' => 'Zebra', 'course_code' => 'Z1']);
+
+        $response = $this->getJson('/api/v1/courses?sort=-units,course_title');
+
+        $response->assertStatus(200);
+
+        $items = $response->json('data');
+        $this->assertGreaterThanOrEqual(3, count($items));
+
+        // Check order of the first 3 items
+        $this->assertEquals('Zebra', (string) $items[0]['course_title']);
+        $this->assertEquals('Apple', (string) $items[1]['course_title']);
+        $this->assertEquals('Banana', (string) $items[2]['course_title']);
+    }
 }

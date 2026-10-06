@@ -134,6 +134,17 @@ class AcademicTermApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_can_search_by_academic_year(): void
+    {
+        $this->actingAsAdministrator();
+        AcademicTerm::factory()->create(['academic_year' => 'TARGET-YEAR', 'term' => 'First Semester']);
+        AcademicTerm::factory()->create(['academic_year' => 'OTHER-YEAR', 'term' => 'Second Semester']);
+
+        $response = $this->getJson('/api/v1/academic-terms?search=target');
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_index_can_filter_by_exact_matches(): void
     {
         $this->actingAsAdministrator();
@@ -482,4 +493,27 @@ class AcademicTermApiTest extends TestCase
             ->assertJsonPath('message', 'Validation failed.')
             ->assertJsonValidationErrors($fields);
     }
+
+    public function test_index_can_sort_results_by_multiple_columns(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        AcademicTerm::query()->delete();
+        AcademicTerm::factory()->create(['academic_year' => '2024', 'term' => 'Second Semester']);
+        AcademicTerm::factory()->create(['academic_year' => '2024', 'term' => 'First Semester']);
+        AcademicTerm::factory()->create(['academic_year' => '2025', 'term' => 'First Semester']);
+
+        $response = $this->getJson('/api/v1/academic-terms?sort=-academic_year,term');
+
+        $response->assertStatus(200);
+
+        $items = $response->json('data');
+        $this->assertGreaterThanOrEqual(3, count($items));
+
+        // Check order of the first 3 items
+        $this->assertEquals('2025', (string) $items[0]['academic_year']);
+        $this->assertEquals('First Semester', (string) $items[1]['term']);
+        $this->assertEquals('Second Semester', (string) $items[2]['term']);
+    }
 }
+

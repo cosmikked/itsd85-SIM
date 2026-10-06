@@ -84,6 +84,31 @@ class CourseOfferingApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_can_search_by_course_and_instructor(): void
+    {
+        $this->actingAsAdministrator();
+
+        $course1 = Course::factory()->create(['course_code' => 'TARGET101', 'course_title' => 'Math']);
+        $instructor1 = User::factory()->create(['name' => 'John Doe', 'role' => 'instructor']);
+        CourseOffering::factory()->create(['course_id' => $course1->id, 'instructor_id' => $instructor1->id, 'section' => 'A']);
+
+        $course2 = Course::factory()->create(['course_code' => 'ENG101', 'course_title' => 'English Target']);
+        $instructor2 = User::factory()->create(['name' => 'Jane Smith', 'role' => 'instructor']);
+        CourseOffering::factory()->create(['course_id' => $course2->id, 'instructor_id' => $instructor2->id, 'section' => 'B']);
+
+        $course3 = Course::factory()->create(['course_code' => 'SCI101', 'course_title' => 'Science']);
+        $instructor3 = User::factory()->create(['name' => 'Alice Target', 'role' => 'instructor']);
+        CourseOffering::factory()->create(['course_id' => $course3->id, 'instructor_id' => $instructor3->id, 'section' => 'C']);
+
+        $course4 = Course::factory()->create(['course_code' => 'PE101', 'course_title' => 'PE']);
+        $instructor4 = User::factory()->create(['name' => 'Bob Johnson', 'role' => 'instructor']);
+        CourseOffering::factory()->create(['course_id' => $course4->id, 'instructor_id' => $instructor4->id, 'section' => 'D']);
+
+        $response = $this->getJson('/api/v1/course-offerings?search=target');
+
+        $response->assertOk()->assertJsonCount(3, 'data');
+    }
+
     public function test_index_can_filter_by_exact_matches(): void
     {
         $this->actingAsAdministrator();
@@ -327,5 +352,27 @@ class CourseOfferingApiTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'Validation failed.')
             ->assertJsonValidationErrors($fields);
+    }
+
+    public function test_index_can_sort_results_by_multiple_columns(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        CourseOffering::query()->delete();
+        CourseOffering::factory()->create(['capacity' => 30, 'section' => 'B']);
+        CourseOffering::factory()->create(['capacity' => 50, 'section' => 'A']);
+        CourseOffering::factory()->create(['capacity' => 30, 'section' => 'Z']);
+
+        $response = $this->getJson('/api/v1/course-offerings?sort=-capacity,-section');
+
+        $response->assertStatus(200);
+
+        $items = $response->json('data');
+        $this->assertGreaterThanOrEqual(3, count($items));
+
+        // Check order of the first 3 items
+        $this->assertEquals('A', (string) $items[0]['section']);
+        $this->assertEquals('Z', (string) $items[1]['section']);
+        $this->assertEquals('B', (string) $items[2]['section']);
     }
 }

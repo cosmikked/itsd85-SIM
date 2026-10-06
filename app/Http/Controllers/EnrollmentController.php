@@ -6,17 +6,31 @@ use App\Http\Requests\StoreEnrollmentRequest;
 use App\Http\Requests\UpdateEnrollmentRequest;
 use App\Http\Resources\EnrollmentResource;
 use App\Models\Enrollment;
+use App\Traits\Sortable;
 use Illuminate\Http\Request;
 
 class EnrollmentController extends Controller
 {
+    use Sortable;
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $enrollments = Enrollment::paginate($perPage);
+
+        $query = Enrollment::query()
+            ->when($request->query('search'), function ($query, $search) {
+                $query->whereHas('student', function ($q) use ($search) {
+                    $q->where('student_number', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->query('student_id'), fn ($q, $student_id) => $q->where('student_id', $student_id))
+            ->when($request->query('course_offering_id'), fn ($q, $offering_id) => $q->where('course_offering_id', $offering_id));
+
+        $enrollments = $this->applySorting($query, $request)->paginate($perPage);
 
         return EnrollmentResource::collection($enrollments)->additional([
             'success' => true,

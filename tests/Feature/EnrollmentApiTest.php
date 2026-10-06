@@ -94,6 +94,24 @@ class EnrollmentApiTest extends TestCase
             ->assertJsonPath('meta.total', 16);
     }
 
+    public function test_index_can_search_by_student_number(): void
+    {
+        $this->actingAsAdministrator();
+
+        $student1 = Student::factory()->create(['student_number' => 'TARGET01']);
+        Enrollment::factory()->create(['student_id' => $student1->id]);
+
+        $student2 = Student::factory()->create(['student_number' => '12345']);
+        Enrollment::factory()->create(['student_id' => $student2->id]);
+
+        $student3 = Student::factory()->create(['student_number' => 'TARGET99']);
+        Enrollment::factory()->create(['student_id' => $student3->id]);
+
+        $response = $this->getJson('/api/v1/enrollments?search=target');
+
+        $response->assertOk()->assertJsonCount(2, 'data');
+    }
+
     public function test_index_can_filter_by_exact_matches(): void
     {
         $this->actingAsAdministrator();
@@ -458,5 +476,27 @@ class EnrollmentApiTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'Validation failed.')
             ->assertJsonValidationErrors($fields);
+    }
+
+    public function test_index_can_sort_results_by_multiple_columns(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        Enrollment::query()->delete();
+        $e1 = Enrollment::factory()->create(['status' => 'dropped']);
+        $e2 = Enrollment::factory()->create(['status' => 'enrolled']);
+        $e3 = Enrollment::factory()->create(['status' => 'dropped']);
+
+        $response = $this->getJson('/api/v1/enrollments?sort=status,-id');
+
+        $response->assertStatus(200);
+
+        $items = $response->json('data');
+        $this->assertGreaterThanOrEqual(3, count($items));
+
+        // Check order of the first 3 items
+        $this->assertEquals('3', (string) $items[0]['id']);
+        $this->assertEquals('1', (string) $items[1]['id']);
+        $this->assertEquals('2', (string) $items[2]['id']);
     }
 }

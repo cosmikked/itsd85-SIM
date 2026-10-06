@@ -296,4 +296,26 @@ class ProgramApiTest extends TestCase
             ->assertJsonPath('message', 'Validation failed.')
             ->assertJsonValidationErrors($fields);
     }
+
+    public function test_index_can_sort_results_by_multiple_columns(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        Program::query()->delete();
+        Program::factory()->create(['code' => 'P2', 'status' => 'inactive', 'name' => 'Banana']);
+        Program::factory()->create(['code' => 'P3', 'status' => 'active', 'name' => 'Zebra']);
+        Program::factory()->create(['code' => 'P1', 'status' => 'inactive', 'name' => 'Apple']);
+
+        $response = $this->getJson('/api/v1/programs?sort=status,-name');
+
+        $response->assertStatus(200);
+
+        $items = $response->json('data');
+        $this->assertGreaterThanOrEqual(3, count($items));
+
+        // Check order of the first 3 items
+        $this->assertEquals('Zebra', (string) $items[0]['name']);
+        $this->assertEquals('Banana', (string) $items[1]['name']);
+        $this->assertEquals('Apple', (string) $items[2]['name']);
+    }
 }
