@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Program;
 use App\Models\Student;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -19,6 +20,7 @@ class StudentFactory extends Factory
     public function definition(): array
     {
         return [
+            'user_id' => User::factory()->student(),
             'student_number' => fake()->unique()->numerify('####-#####'),
             'first_name' => fake()->firstName(),
             'middle_name' => fake()->optional()->firstName(),

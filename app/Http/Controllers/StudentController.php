@@ -6,9 +6,12 @@ use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
 use App\Http\Resources\StudentResource;
 use App\Models\Student;
+use App\Models\User;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class StudentController extends Controller
 {
@@ -46,7 +49,20 @@ class StudentController extends Controller
      */
     public function store(StoreStudentRequest $request)
     {
-        $student = Student::create($request->validated())->refresh();
+        $student = DB::transaction(function () use ($request) {
+            $validated = $request->validated();
+
+            $user = User::create([
+                'name' => $validated['first_name'].' '.$validated['last_name'],
+                'email' => $validated['email'],
+                'password' => Hash::make('password'),
+                'role' => 'student',
+            ]);
+
+            $validated['user_id'] = $user->id;
+
+            return Student::create($validated)->refresh();
+        });
 
         return StudentResource::make($student)->additional([
             'success' => true,
