@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Rules\ConsecutiveAcademicYear;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class StoreAcademicTermRequest extends FormRequest
@@ -14,7 +15,7 @@ class StoreAcademicTermRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('create', App\Models\AcademicTerm::class);
     }
 
     /**

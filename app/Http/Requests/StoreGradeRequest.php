@@ -2,15 +2,18 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Enrollment;
+use App\Models\Grade;
 use App\Models\GradeScale;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
 
 class StoreGradeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('create', [Grade::class, Enrollment::find($this->input('enrollment_id'))]);
     }
 
     public function rules(): array

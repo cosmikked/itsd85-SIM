@@ -9,6 +9,7 @@ use App\Models\Program;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 
 class ProgramController extends Controller
 {
@@ -19,6 +20,8 @@ class ProgramController extends Controller
      */
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', Program::class);
+
         $perPage = $request->query('per_page', 15);
 
         $query = Program::query()
@@ -56,6 +59,8 @@ class ProgramController extends Controller
      */
     public function show(Program $program)
     {
+        Gate::authorize('view', $program);
+
         return ProgramResource::make($program)->additional([
             'success' => true,
             'message' => 'Program retrieved successfully.',

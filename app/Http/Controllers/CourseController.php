@@ -9,6 +9,7 @@ use App\Models\Course;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 
 class CourseController extends Controller
 {
@@ -19,6 +20,8 @@ class CourseController extends Controller
      */
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', Course::class);
+
         $perPage = $request->query('per_page', 15);
 
         $query = Course::query()
@@ -56,6 +59,8 @@ class CourseController extends Controller
      */
     public function show(Course $course)
     {
+        Gate::authorize('view', $course);
+
         return CourseResource::make($course)->additional([
             'success' => true,
             'message' => 'Course retrieved successfully.',

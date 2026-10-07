@@ -9,6 +9,7 @@ use App\Models\CourseOffering;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 
 class CourseOfferingController extends Controller
 {
@@ -19,19 +20,26 @@ class CourseOfferingController extends Controller
      */
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', CourseOffering::class);
+
         $perPage = $request->query('per_page', 15);
 
-        $query = CourseOffering::query()
-            ->when($request->query('search'), function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->whereHas('course', function ($q2) use ($search) {
-                        $q2->where('course_title', 'like', "%{$search}%")
-                            ->orWhere('course_code', 'like', "%{$search}%");
-                    })->orWhereHas('instructor', function ($q2) use ($search) {
-                        $q2->where('name', 'like', "%{$search}%");
-                    });
+        $query = CourseOffering::query();
+
+        if ($request->user()->role === 'instructor') {
+            $query->where('instructor_id', $request->user()->id);
+        }
+
+        $query->when($request->query('search'), function ($query, $search) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('course', function ($q2) use ($search) {
+                    $q2->where('course_title', 'like', "%{$search}%")
+                        ->orWhere('course_code', 'like', "%{$search}%");
+                })->orWhereHas('instructor', function ($q2) use ($search) {
+                    $q2->where('name', 'like', "%{$search}%");
                 });
-            })
+            });
+        })
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
             ->when($request->query('course_id'), fn ($q, $course_id) => $q->where('course_id', $course_id))
             ->when($request->query('academic_term_id'), fn ($q, $term_id) => $q->where('academic_term_id', $term_id))
@@ -63,6 +71,8 @@ class CourseOfferingController extends Controller
      */
     public function show(CourseOffering $courseOffering)
     {
+        Gate::authorize('view', $courseOffering);
+
         return CourseOfferingResource::make($courseOffering)->additional([
             'success' => true,
             'message' => 'Course Offering retrieved successfully.',

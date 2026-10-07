@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Policies;
+
+use App\Models\AcademicTerm;
+use App\Models\User;
+
+class AcademicTermPolicy
+{
+    public function before(User $user, string $ability): ?bool
+    {
+        if ($user->role === 'administrator') {
+            return true;
+        }
+
+        if ($user->role === 'registrar') {
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine whether the user can view any models.
+     */
+    public function viewAny(User $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can view the model.
+     */
+    public function view(User $user, AcademicTerm $academicTerm): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can create models.
+     */
+    public function create(User $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can update the model.
+     */
+    public function update(User $user, AcademicTerm $academicTerm): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can delete the model.
+     */
+    public function delete(User $user, AcademicTerm $academicTerm): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can restore the model.
+     */
+    public function restore(User $user, AcademicTerm $academicTerm): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can permanently delete the model.
+     */
+    public function forceDelete(User $user, AcademicTerm $academicTerm): bool
+    {
+        return false;
+    }
+}

@@ -6,6 +6,7 @@ use App\Models\AcademicTerm;
 use App\Rules\ConsecutiveAcademicYear;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class UpdateAcademicTermRequest extends FormRequest
@@ -15,7 +16,7 @@ class UpdateAcademicTermRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('update', $this->route('academic_term'));
     }
 
     /**

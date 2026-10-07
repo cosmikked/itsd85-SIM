@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class UpdateCourseRequest extends FormRequest
@@ -13,7 +14,7 @@ class UpdateCourseRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('update', $this->route('course'));
     }
 
     /**

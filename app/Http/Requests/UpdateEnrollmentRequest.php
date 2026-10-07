@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Enrollment;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -15,7 +16,7 @@ class UpdateEnrollmentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('update', $this->route('enrollment'));
     }
 
     /**

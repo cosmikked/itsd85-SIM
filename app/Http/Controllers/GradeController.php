@@ -11,6 +11,7 @@ use App\Services\GradeCalculatorService;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 
 class GradeController extends Controller
 {
@@ -20,6 +21,8 @@ class GradeController extends Controller
 
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', Grade::class);
+
         $perPage = $request->query('per_page', 15);
 
         $query = Grade::query()
@@ -66,6 +69,8 @@ class GradeController extends Controller
 
     public function show(Grade $grade)
     {
+        Gate::authorize('view', $grade);
+
         return GradeResource::make($grade)->additional([
             'success' => true,
             'message' => 'Grade retrieved successfully.',

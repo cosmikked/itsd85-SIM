@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\AcademicTerm;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -15,7 +16,7 @@ class StoreCourseOfferingRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('create', App\Models\CourseOffering::class);
     }
 
     /**

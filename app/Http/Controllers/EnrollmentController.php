@@ -8,6 +8,7 @@ use App\Http\Resources\EnrollmentResource;
 use App\Models\Enrollment;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class EnrollmentController extends Controller
 {
@@ -18,6 +19,8 @@ class EnrollmentController extends Controller
      */
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', Enrollment::class);
+
         $perPage = $request->query('per_page', 15);
 
         $query = Enrollment::query()
@@ -56,6 +59,8 @@ class EnrollmentController extends Controller
      */
     public function show(Enrollment $enrollment)
     {
+        Gate::authorize('view', $enrollment);
+
         return EnrollmentResource::make($enrollment)->additional([
             'success' => true,
             'message' => 'Enrollment retrieved successfully.',
@@ -80,6 +85,8 @@ class EnrollmentController extends Controller
      */
     public function destroy(Enrollment $enrollment)
     {
+        Gate::authorize('delete', $enrollment);
+
         if ($enrollment->status === 'completed') {
             abort(409, 'Cannot delete a completed enrollment.');
         }

@@ -11,6 +11,7 @@ use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 
 class StudentController extends Controller
@@ -22,6 +23,8 @@ class StudentController extends Controller
      */
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', Student::class);
+
         $perPage = $request->query('per_page', 15);
 
         $query = Student::query()
@@ -75,6 +78,8 @@ class StudentController extends Controller
      */
     public function show(Student $student)
     {
+        Gate::authorize('view', $student);
+
         return StudentResource::make($student)->additional([
             'success' => true,
             'message' => 'Student retrieved successfully.',

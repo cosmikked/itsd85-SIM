@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 class StoreProgramRequest extends FormRequest
 {
@@ -12,7 +13,7 @@ class StoreProgramRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('create', App\Models\Program::class);
     }
 
     /**

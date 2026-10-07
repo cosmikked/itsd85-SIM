@@ -9,6 +9,7 @@ use App\Models\AcademicTerm;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 
 class AcademicTermController extends Controller
 {
@@ -19,6 +20,8 @@ class AcademicTermController extends Controller
      */
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', AcademicTerm::class);
+
         $perPage = $request->query('per_page', 15);
 
         $query = AcademicTerm::query()
@@ -55,6 +58,8 @@ class AcademicTermController extends Controller
      */
     public function show(AcademicTerm $academicTerm)
     {
+        Gate::authorize('view', $academicTerm);
+
         return AcademicTermResource::make($academicTerm)->additional([
             'success' => true,
             'message' => 'Academic term retrieved successfully.',

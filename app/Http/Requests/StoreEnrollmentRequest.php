@@ -7,6 +7,7 @@ use App\Models\CourseOffering;
 use App\Models\Enrollment;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -17,7 +18,7 @@ class StoreEnrollmentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('create', App\Models\Enrollment::class);
     }
 
     /**
