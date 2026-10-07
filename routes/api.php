@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\AcademicRecordController;
 use App\Http\Controllers\AcademicTermController;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BulkGradeController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CourseOfferingController;
@@ -13,6 +12,7 @@ use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentEnrollmentController;
 use App\Http\Controllers\StudentGradeController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -22,16 +22,7 @@ Route::get('/user', function (Request $request) {
 
 Route::prefix('/v1')->group(function () {
 
-    Route::prefix('/auth')->name('auth.')->group(function () {
-        Route::post('/login', [AuthController::class, 'login'])->name('login');
-
-        Route::middleware('auth:sanctum')->group(function () {
-            Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-            Route::get('/me', [AuthController::class, 'me'])->name('me');
-        });
-    });
-
+    Route::apiResource('users', UserController::class)->middleware('auth:sanctum');
     Route::apiResource('programs', ProgramController::class)->middleware('auth:sanctum');
     Route::apiResource('courses', CourseController::class)->middleware('auth:sanctum');
     Route::apiResource('academic-terms', AcademicTermController::class)->middleware('auth:sanctum');
