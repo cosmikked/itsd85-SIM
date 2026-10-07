@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Models\AcademicTerm;
 use App\Models\Course;
 use App\Models\CourseOffering;
+use App\Models\CourseOfferingSchedule;
+use App\Models\Room;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -20,6 +22,7 @@ class CourseOfferingSeeder extends Seeder
         $courseIds = Course::pluck('id')->all();
         $academicTermIds = AcademicTerm::pluck('id')->all();
         $instructorIds = User::where('role', 'instructor')->pluck('id')->all();
+        $roomIds = Room::pluck('id')->all();
 
         // course_offerings has a unique constraint on (course_id,
         // academic_term_id, section). Build every valid combination up front
@@ -42,10 +45,22 @@ class CourseOfferingSeeder extends Seeder
         shuffle($combinations);
 
         foreach (array_slice($combinations, 0, 40) as $combination) {
-            CourseOffering::factory()->create([
+            $offering = CourseOffering::factory()->create([
                 ...$combination,
                 'instructor_id' => fake()->randomElement($instructorIds),
             ]);
+
+            // Randomly create 1 or 2 schedules for each offering
+            $numSchedules = fake()->numberBetween(1, 2);
+            $days = fake()->randomElements(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], $numSchedules);
+
+            foreach ($days as $day) {
+                CourseOfferingSchedule::factory()->create([
+                    'course_offering_id' => $offering->id,
+                    'room_id' => fake()->randomElement($roomIds),
+                    'day_of_week' => $day,
+                ]);
+            }
         }
     }
 }

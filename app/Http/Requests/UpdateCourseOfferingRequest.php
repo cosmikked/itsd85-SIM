@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\NoScheduleConflict;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -34,10 +35,23 @@ class UpdateCourseOfferingRequest extends FormRequest
                         ->where('academic_term_id', $this->course_offering->academic_term_id);
                 })->ignore($this->course_offering),
             ],
-            'schedule' => ['sometimes', 'string'],
-            'room' => ['nullable', 'string'],
             'capacity' => ['sometimes', 'integer', 'min:1'],
             'status' => ['sometimes', 'string', 'in:open,closed,cancelled'],
+
+            'schedules' => [
+                'sometimes',
+                'array',
+                'min:1',
+                new NoScheduleConflict(
+                    $this->course_offering->academic_term_id,
+                    $this->instructor_id ?? $this->course_offering->instructor_id,
+                    $this->course_offering->id
+                ),
+            ],
+            'schedules.*.room_id' => ['required_with:schedules', 'integer', 'exists:rooms,id'],
+            'schedules.*.day_of_week' => ['required_with:schedules', 'string'],
+            'schedules.*.start_time' => ['required_with:schedules', 'date_format:H:i:s'],
+            'schedules.*.end_time' => ['required_with:schedules', 'date_format:H:i:s', 'after:schedules.*.start_time'],
         ];
     }
 

@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\AcademicTerm;
 use App\Models\Course;
 use App\Models\CourseOffering;
+use App\Models\CourseOfferingSchedule;
 use App\Models\Enrollment;
 use App\Models\Program;
+use App\Models\Room;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -90,19 +92,23 @@ class CourseOfferingApiTest extends TestCase
 
         $course1 = Course::factory()->create(['course_code' => 'TARGET101', 'course_title' => 'Math']);
         $instructor1 = User::factory()->create(['name' => 'John Doe', 'role' => 'instructor']);
-        CourseOffering::factory()->create(['course_id' => $course1->id, 'instructor_id' => $instructor1->id, 'section' => 'A']);
+        $offering1 = CourseOffering::factory()->create(['course_id' => $course1->id, 'instructor_id' => $instructor1->id, 'section' => 'A']);
+        CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering1->id]);
 
         $course2 = Course::factory()->create(['course_code' => 'ENG101', 'course_title' => 'English Target']);
         $instructor2 = User::factory()->create(['name' => 'Jane Smith', 'role' => 'instructor']);
-        CourseOffering::factory()->create(['course_id' => $course2->id, 'instructor_id' => $instructor2->id, 'section' => 'B']);
+        $offering2 = CourseOffering::factory()->create(['course_id' => $course2->id, 'instructor_id' => $instructor2->id, 'section' => 'B']);
+        CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering2->id]);
 
         $course3 = Course::factory()->create(['course_code' => 'SCI101', 'course_title' => 'Science']);
         $instructor3 = User::factory()->create(['name' => 'Alice Target', 'role' => 'instructor']);
-        CourseOffering::factory()->create(['course_id' => $course3->id, 'instructor_id' => $instructor3->id, 'section' => 'C']);
+        $offering3 = CourseOffering::factory()->create(['course_id' => $course3->id, 'instructor_id' => $instructor3->id, 'section' => 'C']);
+        CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering3->id]);
 
         $course4 = Course::factory()->create(['course_code' => 'PE101', 'course_title' => 'PE']);
         $instructor4 = User::factory()->create(['name' => 'Bob Johnson', 'role' => 'instructor']);
-        CourseOffering::factory()->create(['course_id' => $course4->id, 'instructor_id' => $instructor4->id, 'section' => 'D']);
+        $offering4 = CourseOffering::factory()->create(['course_id' => $course4->id, 'instructor_id' => $instructor4->id, 'section' => 'D']);
+        CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering4->id]);
 
         $response = $this->getJson('/api/v1/course-offerings?search=target');
 
@@ -142,17 +148,24 @@ class CourseOfferingApiTest extends TestCase
 
         $course = Course::factory()->create();
         $term = AcademicTerm::factory()->create(['status' => 'active']);
-        $instructor = User::factory()->create(); // Assuming an instructor role is handled or ignored for now
+        $instructor = User::factory()->instructor()->create();
+        $room = Room::factory()->create();
 
         $response = $this->postJson('/api/v1/course-offerings', [
             'course_id' => $course->id,
             'academic_term_id' => $term->id,
             'instructor_id' => $instructor->id,
             'section' => 'A1',
-            'schedule' => 'MWF 8:00AM - 9:00AM',
-            'room' => 'Room 101',
             'capacity' => 40,
             'status' => 'open',
+            'schedules' => [
+                [
+                    'room_id' => $room->id,
+                    'day_of_week' => 'Monday',
+                    'start_time' => '08:00:00',
+                    'end_time' => '09:00:00',
+                ],
+            ],
         ]);
 
         $response->assertCreated()
@@ -163,7 +176,11 @@ class CourseOfferingApiTest extends TestCase
         $this->assertDatabaseHas('course_offerings', [
             'course_id' => $course->id,
             'academic_term_id' => $term->id,
+            'instructor_id' => $instructor->id,
             'section' => 'A1',
+        ]);
+        $this->assertDatabaseHas('course_offering_schedules', [
+            'room_id' => $room->id,
         ]);
     }
 
@@ -183,10 +200,17 @@ class CourseOfferingApiTest extends TestCase
         $response = $this->postJson('/api/v1/course-offerings', [
             'course_id' => $course->id,
             'academic_term_id' => $term->id,
-            'instructor_id' => User::factory()->create()->id,
+            'instructor_id' => User::factory()->instructor()->create()->id,
             'section' => 'A1',
-            'schedule' => 'TTH 8:00AM - 9:30AM',
             'capacity' => 40,
+            'schedules' => [
+                [
+                    'room_id' => Room::factory()->create()->id,
+                    'day_of_week' => 'Monday',
+                    'start_time' => '08:00:00',
+                    'end_time' => '09:00:00',
+                ],
+            ],
         ]);
 
         $this->assertValidationFailed($response, ['section']);
@@ -202,10 +226,17 @@ class CourseOfferingApiTest extends TestCase
         $response = $this->postJson('/api/v1/course-offerings', [
             'course_id' => $course->id,
             'academic_term_id' => $term->id,
-            'instructor_id' => User::factory()->create()->id,
+            'instructor_id' => User::factory()->instructor()->create()->id,
             'section' => 'A1',
-            'schedule' => 'MWF 8:00AM - 9:00AM',
             'capacity' => 40,
+            'schedules' => [
+                [
+                    'room_id' => Room::factory()->create()->id,
+                    'day_of_week' => 'Monday',
+                    'start_time' => '08:00:00',
+                    'end_time' => '09:00:00',
+                ],
+            ],
         ]);
 
         $this->assertValidationFailed($response, ['academic_term_id']);
@@ -215,19 +246,42 @@ class CourseOfferingApiTest extends TestCase
     {
         $this->actingAsAdministrator();
         $offering = CourseOffering::factory()->create(['capacity' => 30]);
+        CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering->id]);
 
-        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", array_merge($offering->toArray(), [
+        $newRoom = Room::factory()->create();
+
+        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
+            'course_id' => $offering->course_id,
+            'academic_term_id' => $offering->academic_term_id,
+            'instructor_id' => $offering->instructor_id,
+            'section' => 'A1_Update',
             'capacity' => 50,
-            'room' => 'New Room',
-        ]));
+            'status' => 'open',
+            'schedules' => [
+                [
+                    'room_id' => $newRoom->id,
+                    'day_of_week' => 'Tuesday',
+                    'start_time' => '10:00:00',
+                    'end_time' => '11:00:00',
+                ],
+            ],
+        ]);
 
         $response->assertOk()
             ->assertJsonPath('data.capacity', 50)
-            ->assertJsonPath('data.room', 'New Room');
+            ->assertJsonPath('data.section', 'A1_Update')
+            ->assertJsonPath('data.schedules.0.room_id', $newRoom->id);
 
         $this->assertDatabaseHas('course_offerings', [
             'id' => $offering->id,
             'capacity' => 50,
+            'section' => 'A1_Update',
+        ]);
+
+        $this->assertDatabaseHas('course_offering_schedules', [
+            'course_offering_id' => $offering->id,
+            'room_id' => $newRoom->id,
+            'day_of_week' => 'Tuesday',
         ]);
     }
 
@@ -235,13 +289,24 @@ class CourseOfferingApiTest extends TestCase
     {
         $this->actingAsAdministrator();
         $offering = CourseOffering::factory()->create(['section' => 'A1', 'capacity' => 40]);
+        $schedule = CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering->id]);
 
         // Resend the exact same unique fields, but change capacity
         $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
+            'course_id' => $offering->course_id,
+            'academic_term_id' => $offering->academic_term_id,
             'instructor_id' => $offering->instructor_id,
             'section' => 'A1', // Same section
-            'schedule' => $offering->schedule,
             'capacity' => 45,
+            'status' => 'open',
+            'schedules' => [
+                [
+                    'room_id' => $schedule->room_id,
+                    'day_of_week' => $schedule->day_of_week,
+                    'start_time' => $schedule->start_time,
+                    'end_time' => $schedule->end_time,
+                ],
+            ],
         ]);
 
         $response->assertOk()->assertJsonPath('data.capacity', 45);
@@ -251,6 +316,7 @@ class CourseOfferingApiTest extends TestCase
     {
         $this->actingAsAdministrator();
         $offering = CourseOffering::factory()->create();
+        $schedule = CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering->id]);
 
         $newCourse = Course::factory()->create();
         $newTerm = AcademicTerm::factory()->create();
@@ -258,7 +324,18 @@ class CourseOfferingApiTest extends TestCase
         $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
             'course_id' => $newCourse->id,
             'academic_term_id' => $newTerm->id,
+            'instructor_id' => $offering->instructor_id,
+            'section' => $offering->section,
+            'status' => 'open',
             'capacity' => 50,
+            'schedules' => [
+                [
+                    'room_id' => $schedule->room_id,
+                    'day_of_week' => $schedule->day_of_week,
+                    'start_time' => $schedule->start_time,
+                    'end_time' => $schedule->end_time,
+                ],
+            ],
         ]);
 
         $response->assertOk();
@@ -276,6 +353,7 @@ class CourseOfferingApiTest extends TestCase
     {
         $this->actingAsAdministrator();
         $offering = CourseOffering::factory()->create(['capacity' => 40]);
+        $schedule = CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering->id]);
 
         $program = Program::factory()->create();
         // Since we refactored capacity checking to only count 'enrolled' status, explicitly set it
@@ -284,9 +362,22 @@ class CourseOfferingApiTest extends TestCase
             'status' => 'enrolled',
         ]);
 
-        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", array_merge($offering->toArray(), [
+        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
+            'course_id' => $offering->course_id,
+            'academic_term_id' => $offering->academic_term_id,
+            'instructor_id' => $offering->instructor_id,
+            'section' => $offering->section,
+            'status' => 'open',
             'capacity' => 30, // Less than the 35 enrolled students
-        ]));
+            'schedules' => [
+                [
+                    'room_id' => $schedule->room_id,
+                    'day_of_week' => $schedule->day_of_week,
+                    'start_time' => $schedule->start_time,
+                    'end_time' => $schedule->end_time,
+                ],
+            ],
+        ]);
 
         $this->assertValidationFailed($response, ['capacity']);
     }
@@ -295,6 +386,7 @@ class CourseOfferingApiTest extends TestCase
     {
         $this->actingAsAdministrator();
         $offering = CourseOffering::factory()->create(['capacity' => 40]);
+        $schedule = CourseOfferingSchedule::factory()->create(['course_offering_id' => $offering->id]);
         $program = Program::factory()->create();
 
         // 35 dropped, 5 enrolled
@@ -308,9 +400,22 @@ class CourseOfferingApiTest extends TestCase
         ]);
 
         // Attempt to lower capacity to 10. (Should pass because only 5 are actually 'enrolled')
-        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", array_merge($offering->toArray(), [
+        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
+            'course_id' => $offering->course_id,
+            'academic_term_id' => $offering->academic_term_id,
+            'instructor_id' => $offering->instructor_id,
+            'section' => $offering->section,
+            'status' => 'open',
             'capacity' => 10,
-        ]));
+            'schedules' => [
+                [
+                    'room_id' => $schedule->room_id,
+                    'day_of_week' => $schedule->day_of_week,
+                    'start_time' => $schedule->start_time,
+                    'end_time' => $schedule->end_time,
+                ],
+            ],
+        ]);
 
         $response->assertOk();
     }
@@ -374,5 +479,147 @@ class CourseOfferingApiTest extends TestCase
         $this->assertEquals('A', (string) $items[0]['section']);
         $this->assertEquals('Z', (string) $items[1]['section']);
         $this->assertEquals('B', (string) $items[2]['section']);
+    }
+
+    public function test_store_with_overlapping_room_schedule_returns_422(): void
+    {
+        $this->actingAsAdministrator();
+        $term = AcademicTerm::factory()->create(['status' => 'active']);
+        $room = Room::factory()->create();
+
+        $offering1 = CourseOffering::factory()->create([
+            'academic_term_id' => $term->id,
+        ]);
+        CourseOfferingSchedule::factory()->create([
+            'course_offering_id' => $offering1->id,
+            'room_id' => $room->id,
+            'day_of_week' => 'Monday',
+            'start_time' => '08:00:00',
+            'end_time' => '10:00:00',
+        ]);
+
+        $response = $this->postJson('/api/v1/course-offerings', [
+            'course_id' => Course::factory()->create()->id,
+            'academic_term_id' => $term->id,
+            'instructor_id' => User::factory()->instructor()->create()->id,
+            'section' => 'A1',
+            'capacity' => 40,
+            'schedules' => [
+                [
+                    'room_id' => $room->id,
+                    'day_of_week' => 'Monday',
+                    'start_time' => '09:00:00',
+                    'end_time' => '11:00:00',
+                ],
+            ],
+        ]);
+
+        $this->assertValidationFailed($response, ['schedules']);
+    }
+
+    public function test_store_with_overlapping_instructor_schedule_returns_422(): void
+    {
+        $this->actingAsAdministrator();
+        $term = AcademicTerm::factory()->create(['status' => 'active']);
+        $instructor = User::factory()->instructor()->create();
+
+        $offering1 = CourseOffering::factory()->create([
+            'academic_term_id' => $term->id,
+            'instructor_id' => $instructor->id,
+        ]);
+        CourseOfferingSchedule::factory()->create([
+            'course_offering_id' => $offering1->id,
+            'day_of_week' => 'Tuesday',
+            'start_time' => '13:00:00',
+            'end_time' => '15:00:00',
+        ]);
+
+        $response = $this->postJson('/api/v1/course-offerings', [
+            'course_id' => Course::factory()->create()->id,
+            'academic_term_id' => $term->id,
+            'instructor_id' => $instructor->id,
+            'section' => 'B1',
+            'capacity' => 40,
+            'schedules' => [
+                [
+                    'room_id' => Room::factory()->create()->id,
+                    'day_of_week' => 'Tuesday',
+                    'start_time' => '14:00:00',
+                    'end_time' => '16:00:00',
+                ],
+            ],
+        ]);
+
+        $this->assertValidationFailed($response, ['schedules']);
+    }
+
+    public function test_update_can_add_modify_and_remove_schedules(): void
+    {
+        $this->actingAsAdministrator();
+        $offering = CourseOffering::factory()->create(['capacity' => 30]);
+        $schedule1 = CourseOfferingSchedule::factory()->create([
+            'course_offering_id' => $offering->id,
+            'day_of_week' => 'Monday',
+            'start_time' => '08:00:00',
+            'end_time' => '09:00:00',
+        ]);
+        $schedule2 = CourseOfferingSchedule::factory()->create([
+            'course_offering_id' => $offering->id,
+            'day_of_week' => 'Wednesday',
+            'start_time' => '08:00:00',
+            'end_time' => '09:00:00',
+        ]);
+
+        $newRoom = Room::factory()->create();
+
+        $response = $this->putJson("/api/v1/course-offerings/{$offering->id}", [
+            'course_id' => $offering->course_id,
+            'academic_term_id' => $offering->academic_term_id,
+            'instructor_id' => $offering->instructor_id,
+            'section' => 'A1_Update',
+            'capacity' => 50,
+            'status' => 'open',
+            'schedules' => [
+                [
+                    // Modify existing schedule1
+                    'id' => $schedule1->id,
+                    'room_id' => $newRoom->id,
+                    'day_of_week' => 'Monday',
+                    'start_time' => '07:00:00',
+                    'end_time' => '09:00:00',
+                ],
+                [
+                    // Add new schedule
+                    'room_id' => $newRoom->id,
+                    'day_of_week' => 'Friday',
+                    'start_time' => '10:00:00',
+                    'end_time' => '12:00:00',
+                ],
+                // Omitting schedule2 will delete it
+            ],
+        ]);
+
+        $response->assertOk();
+
+        // Check if schedule1 was "updated" (might be new row but same room and time)
+        $this->assertDatabaseHas('course_offering_schedules', [
+            'course_offering_id' => $offering->id,
+            'room_id' => $newRoom->id,
+            'start_time' => '07:00:00',
+            'day_of_week' => 'Monday',
+        ]);
+
+        // Check if new schedule was added
+        $this->assertDatabaseHas('course_offering_schedules', [
+            'course_offering_id' => $offering->id,
+            'room_id' => $newRoom->id,
+            'day_of_week' => 'Friday',
+        ]);
+
+        // Check if schedule2 was removed (by asserting Wednesday schedule doesn't exist for this offering)
+        $this->assertDatabaseMissing('course_offering_schedules', [
+            'course_offering_id' => $offering->id,
+            'day_of_week' => 'Wednesday',
+        ]);
     }
 }

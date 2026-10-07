@@ -4,15 +4,16 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
-class UpdateUserRequest extends FormRequest
+class UpdateGradingDeadlinesRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('updateDeadlines', $this->route('academic_term'));
     }
 
     /**
@@ -23,11 +24,9 @@ class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'string', 'email', 'max:255', 'unique:users,email,'.$this->user->id],
-            'password' => ['sometimes', 'string', 'min:8'],
-            'role' => ['sometimes', 'in:administrator,registrar,instructor,student'],
-            'status' => ['sometimes', 'in:active,inactive'],
+            'midterm_grading_deadline' => ['sometimes', 'required', 'date'],
+            'final_grading_deadline' => ['sometimes', 'required', 'date', 'after_or_equal:midterm_grading_deadline'],
+            'inc_completion_deadline' => ['sometimes', 'required', 'date', 'after_or_equal:final_grading_deadline'],
         ];
     }
 }

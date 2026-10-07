@@ -9,6 +9,7 @@ use App\Models\CourseOffering;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class CourseOfferingController extends Controller
@@ -58,7 +59,16 @@ class CourseOfferingController extends Controller
      */
     public function store(StoreCourseOfferingRequest $request)
     {
-        $offering = CourseOffering::create($request->validated())->refresh();
+        $validated = $request->validated();
+        $schedules = $validated['schedules'];
+        unset($validated['schedules']);
+
+        $offering = DB::transaction(function () use ($validated, $schedules) {
+            $offering = CourseOffering::create($validated);
+            $offering->schedules()->createMany($schedules);
+
+            return $offering->refresh();
+        });
 
         return CourseOfferingResource::make($offering)->additional([
             'success' => true,
@@ -84,7 +94,19 @@ class CourseOfferingController extends Controller
      */
     public function update(UpdateCourseOfferingRequest $request, CourseOffering $courseOffering)
     {
-        $courseOffering->update($request->validated());
+        $validated = $request->validated();
+
+        $courseOffering = DB::transaction(function () use ($validated, $courseOffering) {
+            if (isset($validated['schedules'])) {
+                $schedules = $validated['schedules'];
+                unset($validated['schedules']);
+                $courseOffering->schedules()->delete();
+                $courseOffering->schedules()->createMany($schedules);
+            }
+            $courseOffering->update($validated);
+
+            return $courseOffering->refresh();
+        });
 
         return CourseOfferingResource::make($courseOffering)->additional([
             'success' => true,

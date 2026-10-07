@@ -15,8 +15,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'academic_term_id',
     'instructor_id',
     'section',
-    'schedule',
-    'room',
     'capacity',
     'status',
 ])]
@@ -38,6 +36,11 @@ class CourseOffering extends Model
     public function instructor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'instructor_id');
+    }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(CourseOfferingSchedule::class);
     }
 
     public function enrollments(): HasMany

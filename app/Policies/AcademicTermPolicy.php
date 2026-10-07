@@ -13,11 +13,19 @@ class AcademicTermPolicy
             return true;
         }
 
-        if ($user->role === 'registrar') {
+        if ($user->role === 'registrar' && $ability !== 'updateDeadlines') {
             return true;
         }
 
         return null;
+    }
+
+    /**
+     * Determine whether the user can update the grading deadlines of the model.
+     */
+    public function updateDeadlines(User $user, AcademicTerm $academicTerm): bool
+    {
+        return false;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAcademicTermRequest;
 use App\Http\Requests\UpdateAcademicTermRequest;
+use App\Http\Requests\UpdateGradingDeadlinesRequest;
 use App\Http\Resources\AcademicTermResource;
 use App\Models\AcademicTerm;
 use App\Traits\Sortable;
@@ -76,6 +77,19 @@ class AcademicTermController extends Controller
         return AcademicTermResource::make($academicTerm)->additional([
             'success' => true,
             'message' => 'Academic term updated successfully.',
+        ]);
+    }
+
+    /**
+     * Update the grading deadlines of the specified resource.
+     */
+    public function updateDeadlines(UpdateGradingDeadlinesRequest $request, AcademicTerm $academicTerm)
+    {
+        $academicTerm->update($request->validated());
+
+        return AcademicTermResource::make($academicTerm)->additional([
+            'success' => true,
+            'message' => 'Academic term grading deadlines updated successfully.',
         ]);
     }
 

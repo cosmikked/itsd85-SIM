@@ -20,10 +20,17 @@ class CourseOfferingResource extends JsonResource
             'academic_term_id' => $this->academic_term_id,
             'instructor_id' => $this->instructor_id,
             'section' => $this->section,
-            'schedule' => $this->schedule,
-            'room' => $this->room,
             'capacity' => $this->capacity,
             'status' => $this->status,
+            'schedules' => $this->schedules->map(function ($schedule) {
+                return [
+                    'id' => $schedule->id,
+                    'room_id' => $schedule->room_id,
+                    'day_of_week' => $schedule->day_of_week,
+                    'start_time' => $schedule->start_time,
+                    'end_time' => $schedule->end_time,
+                ];
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

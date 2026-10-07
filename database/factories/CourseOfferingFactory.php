@@ -25,13 +25,6 @@ class CourseOfferingFactory extends Factory
             'academic_term_id' => AcademicTerm::factory(),
             'instructor_id' => User::factory()->instructor(),
             'section' => fake()->randomElement(['A', 'B', 'C', 'D', 'E']),
-            'schedule' => fake()->randomElement([
-                'MWF 8:00-9:00',
-                'TTh 9:30-11:00',
-                'MWF 13:00-14:00',
-                'TTh 14:00-15:30',
-            ]),
-            'room' => fake()->optional()->bothify('Room ###'),
             'capacity' => fake()->numberBetween(20, 50),
             'status' => fake()->randomElement(['open', 'closed', 'cancelled']),
         ];

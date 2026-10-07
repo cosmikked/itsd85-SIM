@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\AcademicTerm;
+use App\Rules\NoScheduleConflict;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -38,10 +39,14 @@ class StoreCourseOfferingRequest extends FormRequest
                         ->where('academic_term_id', $this->academic_term_id);
                 }),
             ],
-            'schedule' => ['required', 'string'],
-            'room' => ['nullable', 'string'],
             'capacity' => ['required', 'integer', 'min:1'],
             'status' => ['sometimes', 'string', 'in:open,closed,cancelled'],
+
+            'schedules' => ['required', 'array', 'min:1', new NoScheduleConflict((int) $this->academic_term_id, (int) $this->instructor_id)],
+            'schedules.*.room_id' => ['required', 'integer', 'exists:rooms,id'],
+            'schedules.*.day_of_week' => ['required', 'string'],
+            'schedules.*.start_time' => ['required', 'date_format:H:i:s'],
+            'schedules.*.end_time' => ['required', 'date_format:H:i:s', 'after:schedules.*.start_time'],
         ];
     }
 

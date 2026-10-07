@@ -24,7 +24,7 @@ class UserController extends Controller
     {
         $perPage = $request->query('per_page', 15);
         $users = User::paginate($perPage);
-        
+
         return UserResource::collection($users)->additional([
             'success' => true,
             'message' => 'Users retrieved successfully.',
@@ -39,7 +39,7 @@ class UserController extends Controller
         $data = $request->validated();
         $data['password'] = Hash::make($data['password']);
         $user = User::create($data);
-        
+
         return UserResource::make($user)->additional([
             'success' => true,
             'message' => 'User created successfully.',
@@ -67,7 +67,7 @@ class UserController extends Controller
             $data['password'] = Hash::make($data['password']);
         }
         $user->update($data);
-        
+
         return UserResource::make($user)->additional([
             'success' => true,
             'message' => 'User updated successfully.',
@@ -80,7 +80,7 @@ class UserController extends Controller
     public function destroy(User $user): Response
     {
         $user->update(['status' => 'inactive']);
-        
+
         return response()->noContent();
     }
 }

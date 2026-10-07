@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             AcademicTermSeeder::class,
             GradeScaleSeeder::class,
             StudentSeeder::class,
+            RoomSeeder::class,
             CourseOfferingSeeder::class,
             EnrollmentSeeder::class,
             GradeSeeder::class,
