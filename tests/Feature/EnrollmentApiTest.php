@@ -480,7 +480,7 @@ class EnrollmentApiTest extends TestCase
 
     public function test_index_can_sort_results_by_multiple_columns(): void
     {
-        Sanctum::actingAs(User::factory()->administrator()->create());
+        Sanctum::actingAs(User::factory()->create());
 
         Enrollment::query()->delete();
         $e1 = Enrollment::factory()->create(['status' => 'dropped']);

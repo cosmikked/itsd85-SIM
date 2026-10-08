@@ -461,7 +461,7 @@ class CourseOfferingApiTest extends TestCase
 
     public function test_index_can_sort_results_by_multiple_columns(): void
     {
-        Sanctum::actingAs(User::factory()->administrator()->create());
+        Sanctum::actingAs(User::factory()->create());
 
         CourseOffering::query()->delete();
         CourseOffering::factory()->create(['capacity' => 30, 'section' => 'B']);
