@@ -25,9 +25,12 @@ class AppServiceProvider extends ServiceProvider
         Enrollment::observe(EnrollmentObserver::class);
 
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+            $frontendUrl = config('app.frontend_url');
 
-            return $frontendUrl."/reset-password?token={$token}&email={$notifiable->getEmailForPasswordReset()}";
+            return $frontendUrl.'/reset-password?'.http_build_query([
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]);
         });
     }
 }

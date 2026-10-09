@@ -13,9 +13,7 @@ class AuthenticationTest extends TestCase
 
     public function test_me_returns_401_when_no_token_is_provided(): void
     {
-        $response = $this->getJson('/api/v1/auth/me');
-
-        $response->assertUnauthorized();
+        $this->getJson('/api/v1/auth/me')->assertUnauthorized();
     }
 
     public function test_login_with_valid_credentials_returns_200_and_a_token(): void
@@ -27,8 +25,11 @@ class AuthenticationTest extends TestCase
             'password' => 'correct-password',
         ]);
 
-        // asserts response is 200 and that a 'token' key exists in the response body
-        $response->assertOk()->assertJsonStructure(['token']);
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Login successful.')
+            ->assertJsonStructure(['data' => ['token']]);
+        $this->assertIsString($response->json('data.token'));
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_id' => $user->id,
             'tokenable_type' => User::class,
@@ -44,26 +45,80 @@ class AuthenticationTest extends TestCase
             'password' => 'wrong-password',
         ]);
 
-        $response->assertUnprocessable()->assertJsonStructure(['message', 'errors']);
-
-        // asserts that the response body has no 'token' field
-        $response->assertJsonMissingPath('token');
+        $response->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Validation failed.')
+            ->assertJsonValidationErrors(['email']);
+        $response->assertJsonMissingPath('data.token');
         $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_login_with_unknown_email_returns_the_same_error_as_a_wrong_password(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('correct-password')]);
+
+        $wrongPassword = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
+        $unknownEmail = $this->postJson('/api/v1/auth/login', [
+            'email' => 'nobody@example.com',
+            'password' => 'wrong-password',
+        ]);
+
+        $unknownEmail->assertUnprocessable();
+        $this->assertSame($wrongPassword->json('errors.email'), $unknownEmail->json('errors.email'));
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_login_for_an_inactive_user_returns_the_same_generic_error(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('correct-password'),
+            'status' => 'inactive',
+        ]);
+        $wrongPassword = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'correct-password',
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonValidationErrors(['email']);
+        $this->assertSame($wrongPassword->json('errors.email'), $response->json('errors.email'));
+        $response->assertJsonMissingPath('data.token');
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_login_without_credentials_returns_422(): void
+    {
+        $this->postJson('/api/v1/auth/login', [])
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonValidationErrors(['email', 'password']);
     }
 
     public function test_me_with_valid_token_returns_200_and_the_user_without_password(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->administrator()->create();
         $token = $user->createToken('test-token')->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/auth/me');
 
         $response->assertOk()
-            ->assertJsonPath('id', $user->id)
-            ->assertJsonPath('email', $user->email);
-        $response->assertJsonMissingPath('password');
-        $response->assertJsonMissingPath('remember_token');
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Current user retrieved successfully.')
+            ->assertJsonPath('data.id', $user->id)
+            ->assertJsonPath('data.email', $user->email)
+            ->assertJsonPath('data.role', 'administrator');
+        $response->assertJsonMissingPath('data.password');
+        $response->assertJsonMissingPath('data.remember_token');
     }
 
     public function test_logout_revokes_the_token_and_reusing_it_returns_401(): void
