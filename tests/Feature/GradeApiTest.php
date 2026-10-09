@@ -227,10 +227,10 @@ class GradeApiTest extends TestCase
         $this->assertEquals($term->inc_completion_deadline->format('Y-m-d'), $grade->inc_expiration_date->format('Y-m-d'));
     }
 
-    public function test_cannot_upload_grades_after_grading_deadlines(): void
+    public function test_instructor_cannot_upload_grades_after_grading_deadlines(): void
     {
-        $this->actingAsAdministrator();
         [$term, $instructor, $offering, $enrollment] = $this->setupBaseData();
+        Sanctum::actingAs($instructor);
 
         $term->update(['midterm_grading_deadline' => now()->subDays(1)]);
 
@@ -240,6 +240,19 @@ class GradeApiTest extends TestCase
         ]);
 
         $response->assertStatus(403);
+    }
+
+    public function test_administrator_can_upload_grades_after_grading_deadlines(): void
+    {
+        $this->actingAsAdministrator();
+        [$term, $instructor, $offering, $enrollment] = $this->setupBaseData();
+
+        $term->update(['midterm_grading_deadline' => now()->subDays(1)]);
+
+        $this->postJson('/api/v1/grades', [
+            'enrollment_id' => $enrollment->id,
+            'midterm_raw_score' => 85,
+        ])->assertCreated();
     }
 
     public function test_cannot_store_raw_scores_out_of_bounds(): void

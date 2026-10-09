@@ -34,6 +34,31 @@ class GradeFactory extends Factory
             'is_inc' => false,
             'inc_expiration_date' => null,
             'remarks' => null,
+            'midterm_status' => 'draft',
+            'midterm_published_at' => null,
+            'final_status' => 'draft',
+            'final_published_at' => null,
         ];
+    }
+
+    public function midtermPublished(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'midterm_status' => 'published',
+            'midterm_published_at' => now(),
+        ]);
+    }
+
+    public function finalPublished(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'final_status' => 'published',
+            'final_published_at' => now(),
+        ]);
+    }
+
+    public function published(): static
+    {
+        return $this->midtermPublished()->finalPublished();
     }
 }

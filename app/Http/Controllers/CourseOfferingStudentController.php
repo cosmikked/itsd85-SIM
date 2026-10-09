@@ -4,15 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\StudentResource;
 use App\Models\CourseOffering;
+use Illuminate\Support\Facades\Gate;
 
 class CourseOfferingStudentController extends Controller
 {
     public function index(CourseOffering $courseOffering)
     {
-        $students = $courseOffering->enrollments()->with('student')->paginate(15)->pluck('student');
+        Gate::authorize('viewRoster', $courseOffering);
 
-        // Wrap in paginator since pluck loses the pagination envelope if we just return it raw.
-        // Or better, just paginate the students relationship directly:
+        // pluck() on the paginator's collection would drop the pagination envelope,
+        // so swap the collection on the paginator instead.
         $paginatedStudents = $courseOffering->enrollments()->with('student')->paginate(15);
         $paginatedStudents->setCollection($paginatedStudents->pluck('student'));
 

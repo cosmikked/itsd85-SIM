@@ -46,6 +46,12 @@ class EnrollmentObserver
                 $grade->remarks = 'Withdrawn';
             }
 
+            // a withdrawal is an official result, not a draft the instructor still owns
+            $grade->midterm_status = 'published';
+            $grade->midterm_published_at = $now;
+            $grade->final_status = 'published';
+            $grade->final_published_at = $now;
+
             $grade->save();
         }
     }

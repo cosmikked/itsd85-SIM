@@ -63,7 +63,7 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /programs`, `GET /programs/{id}` | Any authenticated role (reference data every role needs — e.g. to populate a student-creation form) | Paginated, 15/page. | `200`. | `401`, `404` for the single-record form. |
+| `GET /programs`, `GET /programs/{id}` | Admin, Registrar (instructors and students get `403`) | Paginated, 15/page. | `200`. | `401`, `404` for the single-record form. |
 | `POST /programs` | Admin, Registrar | `code` required, unique; `name` required; `description` nullable; `status` in `active`\|`inactive` (optional, defaults to `active`). | `201`. | `422` (incl. duplicate `code`), `401`, `403`. |
 | `PUT`/`PATCH /programs/{id}` | Admin, Registrar | Same, every field optional (partial update), `code` uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
 | `DELETE /programs/{id}` | Admin | **Decided:** hard delete, blocked if the program has any students (`program_id` is `restrictOnDelete`, checked at the app layer first so it's a clean `409` rather than a raw DB error). | `204`, no body. | `409` if students reference it, `404`, `401`, `403`. |
@@ -81,7 +81,7 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /courses`, `GET /courses/{id}` | Any authenticated role | Paginated, 15/page. | `200`. | `401`, `404`. |
+| `GET /courses`, `GET /courses/{id}` | Admin, Registrar (instructors and students get `403`) | Paginated, 15/page. | `200`. | `401`, `404`. |
 | `POST /courses` | Admin, Registrar | `course_code` required, unique (spec §7.2); `course_title` required; `description` nullable; `units` required, integer, **between 1 and 9** (a judgment call — the column allows 0–255, this range was chosen to match realistic course loads); `status` in `active`\|`inactive` (optional). | `201`. | `422` (incl. duplicate `course_code`, `units` out of range), `401`, `403`. |
 | `PUT`/`PATCH /courses/{id}` | Admin, Registrar | Same, every field optional (partial update), `course_code` uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
 | `DELETE /courses/{id}` | Admin | **Decided:** hard delete, blocked if the course has any course offerings (`course_id` is `restrictOnDelete`, checked at the app layer for a clean `409`). | `204`, no body. | `409` if offerings reference it, `404`, `401`, `403`. |
@@ -97,7 +97,7 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /academic-terms`, `GET /academic-terms/{id}` | Any authenticated role | Paginated, 15/page. | `200`. | `401`, `404`. |
+| `GET /academic-terms`, `GET /academic-terms/{id}` | Admin, Registrar (instructors and students get `403`) | Paginated, 15/page. | `200`. | `401`, `404`. |
 | `POST /academic-terms` | Admin, Registrar | `academic_year` required, format `YYYY-YYYY` **with the second year exactly one more than the first** (e.g. `2026-2027` passes, `2026-2028` doesn't — enforced by `ConsecutiveAcademicYear`); `term` required, `First Semester`\|`Second Semester`\|`MidYear`; `start_date`/`end_date` required, `Y-m-d` format, `end_date` after `start_date`; `(academic_year, term)` pair unique (error reported on `term`). | `201`. | `422` (incl. duplicate year+term pair, non-consecutive year), `401`, `403`. |
 | `PUT`/`PATCH /academic-terms/{id}` | Admin, Registrar | **Partial-friendly update:** every field optional; a field not sent keeps its stored value, and the cross-field checks (date order, the year+term pair) fall back to that stored value for whichever side wasn't sent — so `PATCH {"status":"inactive"}` alone works without resending the rest. | `200`. | `422`, `404`, `401`, `403`. |
 | `DELETE /academic-terms/{id}` | Admin | **Decided:** hard delete, blocked if the term has any course offerings (`academic_term_id` is `restrictOnDelete`, checked at the app layer for a clean `409`). | `204`, no body. | `409` if offerings reference it, `404`, `401`, `403`. |
@@ -113,7 +113,7 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
-| `GET /course-offerings`, `GET /course-offerings/{id}` | Any authenticated role (students browse to enroll; instructors see their own) | — | `200`. | `401`, `404`. |
+| `GET /course-offerings`, `GET /course-offerings/{id}` | Admin, Registrar (any); Instructor (own offerings only — the list is filtered); Student (only an offering they are enrolled in) | — | `200`. | `401`, `404`. |
 | `POST /course-offerings` | Admin, Registrar | `course_id`, `academic_term_id`, `instructor_id` required and must reference existing records; `instructor_id` should reference a user with `role = instructor` (schema's FK alone doesn't check the role — this is an app-layer rule); `section`, `schedule`, `capacity` required; `(course_id, academic_term_id, section)` unique. | `201`. | `422` (incl. duplicate section, non-instructor `instructor_id`), `401`, `403`. |
 | `PUT`/`PATCH /course-offerings/{id}` | Admin, Registrar | Same rules, uniqueness excludes current record. | `200`. | `422`, `404`, `401`, `403`. |
 | `DELETE /course-offerings/{id}` | Admin | `course_offering_id` on `enrollments` is `restrictOnDelete`. | `200`/`204`. | `409` if enrollments reference it, `404`, `401`, `403`. |
@@ -136,7 +136,7 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 | `GET /enrollments/{id}` | Admin, Registrar (any); Student (own only); Instructor (only for their own course offering) | — | `200`. | `404`, `401`, `403` object-level violation. |
 | `PATCH /enrollments/{id}` | Admin, Registrar | Typically a `status` change (`enrolled`→`dropped`/`completed`). | `200`. | `422`, `404`, `401`, `403`. |
 | `DELETE /enrollments/{id}` | Admin | `enrollment_id` on `grades` is `cascadeOnDelete` — deleting an enrollment silently deletes its grade record too. Confirm that's actually what you want before implementing a hard delete here; a status change to `dropped` may be the safer operation. | `200`/`204`. | `404`, `401`, `403`. |
-| `GET /students/{id}/enrollments` | Admin, Registrar (any student); Student (self only) | — | `200`. | `403` object-level violation, `404`. |
+| `GET /students/{id}/enrollments` | Admin, Registrar (any student); Student (self only); instructors get `403` | — | `200`. | `403` object-level violation, `404`. |
 | `GET /course-offerings/{id}/students` | Admin, Registrar; Instructor (only if `{id}` is one of their own offerings) | — | `200`. | `403` object-level violation, `404`. |
 
 ---
@@ -152,10 +152,10 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 | Endpoint | Allowed Roles | Key Validation | Success | Errors |
 |---|---|---|---|---|
 | `GET /grades` | Admin, Registrar | — | `200`, paginated. | `401`, `403`. |
-| `POST /grades` | Instructor (only for enrollments under their own course offering — spec §12.2's central object-level rule); Admin/Registrar as an override | `enrollment_id` required, must reference an existing enrollment with no existing grade record (unique per `DATA_DICTIONARY.md`); `midterm_raw_score`/`final_raw_score` numeric within your defined range (0–100), or omitted entirely if setting `status = INCOMPLETE` instead. | `201`. | `422` (incl. out-of-range score, unauthorized instructor for that offering — spec §16 explicit test case), `401`, `403`, `404` bad `enrollment_id`. |
+| `POST /grades` | Instructor (only for enrollments under their own course offering — spec §12.2's central object-level rule); Admin as an override (registrars are view-only on grades) | `enrollment_id` required, must reference an existing enrollment with no existing grade record (unique per `DATA_DICTIONARY.md`); `midterm_raw_score`/`final_raw_score` numeric within your defined range (0–100), or omitted entirely if setting `status = INCOMPLETE` instead. | `201`. | `422` (incl. out-of-range score, unauthorized instructor for that offering — spec §16 explicit test case), `401`, `403`, `404` bad `enrollment_id`. |
 | `GET /grades/{id}` | Admin, Registrar (any); Instructor (own offering's grade); Student (own grade) | — | `200`, include the resolved `grade_point`/`remarks` from the linked `grade_scales` row, not just the raw score. | `404`, `401`, `403` object-level violation. |
-| `PUT`/`PATCH /grades/{id}` | Instructor (own offering only), Admin/Registrar override | Submitting a raw score looks up the matching `grade_scales` band server-side and sets `midterm_grade_scale_id`/`final_grade_scale_id` — the client sends a raw score, never a `grade_point` or `grade_scale_id` directly. Setting `status` (e.g. `INCOMPLETE`) should be mutually exclusive with setting that period's `*_grade_scale_id`. | `200`. | `422` (incl. no matching band for the raw score — this needs your `grade_scales` ranges to be exhaustive, per the earlier design discussion), `404`, `401`, `403`. |
-| `GET /students/{id}/grades` | Admin, Registrar (any); Student (self only); Instructor (only the subset within their own offerings) | — | `200`. | `403` object-level violation, `404`. |
+| `PUT`/`PATCH /grades/{id}` | Admin only (registrars are view-only; instructors amend scores through `PUT /course-offerings/{id}/grades`, own offerings only) | Submitting a raw score looks up the matching `grade_scales` band server-side and sets `midterm_grade_scale_id`/`final_grade_scale_id` — the client sends a raw score, never a `grade_point` or `grade_scale_id` directly. Setting `status` (e.g. `INCOMPLETE`) should be mutually exclusive with setting that period's `*_grade_scale_id`. | `200`. | `422` (incl. no matching band for the raw score — this needs your `grade_scales` ranges to be exhaustive, per the earlier design discussion), `404`, `401`, `403`. |
+| `GET /students/{id}/grades` | Admin, Registrar (any); Student (self only); instructors get `403` | — | `200`. | `403` object-level violation, `404`. |
 
 ---
 
@@ -175,7 +175,7 @@ This is the endpoint your Phase 1 `ApplicationBootTest` already proves is wired 
 
 These aren't spelled out precisely enough by the spec to have one obviously-correct answer — the table above states a default, but confirm it matches what you actually intend before building against it:
 
-1. **Does a Student self-enroll, or does Registrar/Admin enroll them?** The spec doesn't say either way. The table above defaults to staff-managed (`POST /enrollments` restricted to Admin/Registrar), matching §5.1's "Registrar/Staff... manage... enrollments." If you want self-service enrollment, `student` needs to be added to that endpoint's allowed roles, plus an object-level check that a student can only create an enrollment for themselves.
+1. **Does a Student self-enroll, or does Registrar/Admin enroll them?** **Settled (2026-10-09): staff-only.** The spec doesn't say either way. The table above defaults to staff-managed (`POST /enrollments` restricted to Admin/Registrar), matching §5.1's "Registrar/Staff... manage... enrollments." If you want self-service enrollment, `student` needs to be added to that endpoint's allowed roles, plus an object-level check that a student can only create an enrollment for themselves.
 2. **Is there a `/users` CRUD endpoint group at all?** Spec §8.1 doesn't list one, but §6 requires a "Users and Roles" module, and someone has to create the `instructor`/`registrar` accounts referenced by `course_offerings.instructor_id`. You'll need *some* way to create users — either a dedicated Admin-only `/users` endpoint group (not in §8.1 but reasonable to add) or a seeder-only approach for the fixed set of staff accounts. Worth deciding explicitly rather than discovering the gap mid-Phase-4.
 3. **Hard delete vs. deactivate**, called out per-resource above wherever a `restrictOnDelete` FK makes a literal `DELETE` awkward (Programs, Courses, Academic Terms, Course Offerings, Enrollments). Spec §8's table lists "Delete/deactivate" as one operation — it's explicitly leaving this choice to you.
    **Settled for Programs, Courses, Academic Terms, Students (2026-09-23):** hard delete, blocked with `409` if a dependent record exists, checked at the app layer before the database's own constraint would otherwise raise a `500`. Still open for Course Offerings and Enrollments — the same pattern is the obvious default, but confirm before assuming it, since `enrollments.grade` is `cascadeOnDelete` (see the Enrollments/Grades note above) which is a different situation from the others.

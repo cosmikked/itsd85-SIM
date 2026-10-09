@@ -2,24 +2,32 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PublishGradeRequest;
 use App\Http\Requests\UpdateBulkGradeRequest;
 use App\Models\CourseOffering;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Services\GradeCalculatorService;
+use App\Services\GradePublicationService;
 use Illuminate\Support\Facades\DB;
 
 class BulkGradeController extends Controller
 {
-    public function __construct(private GradeCalculatorService $gradeService) {}
+    public function __construct(
+        private GradeCalculatorService $gradeService,
+        private GradePublicationService $publication,
+    ) {}
 
+    /**
+     * Save grades for a whole offering. Rows stay drafts until they are published.
+     */
     public function update(UpdateBulkGradeRequest $request, CourseOffering $courseOffering)
     {
         $data = $request->validated();
+        $actor = $request->user();
         $term = $courseOffering->academicTerm;
-        $now = now();
 
-        DB::transaction(function () use ($data, $courseOffering, $term, $now) {
+        DB::transaction(function () use ($data, $courseOffering, $term, $actor) {
             foreach ($data['grades'] as $gradeData) {
                 // Ensure enrollment belongs to this course offering
                 $enrollment = Enrollment::where('id', $gradeData['enrollment_id'])
@@ -34,17 +42,13 @@ class BulkGradeController extends Controller
                     abort(422, "Cannot grade inactive enrollment {$gradeData['enrollment_id']}.");
                 }
 
-                if (array_key_exists('midterm_raw_score', $gradeData) && $term->midterm_grading_deadline && clone $now > clone $term->midterm_grading_deadline) {
-                    abort(403, 'Midterm grading deadline has passed.');
-                }
-                if (array_key_exists('finalterm_raw_score', $gradeData) && $term->final_grading_deadline && clone $now > clone $term->final_grading_deadline) {
-                    abort(403, 'Final grading deadline has passed.');
-                }
-
                 $grade = Grade::firstOrNew(['enrollment_id' => $enrollment->id]);
                 $grade->setRelation('enrollment', $enrollment);
                 $enrollment->setRelation('courseOffering', $courseOffering);
                 $courseOffering->setRelation('academicTerm', $term);
+
+                $this->publication->assertEditable($grade, $gradeData, $actor);
+                $this->publication->assertWithinDeadlines($term, $gradeData, $actor, $grade);
 
                 $grade = $this->gradeService->computeGrade($grade, $gradeData);
                 $grade->save();
@@ -54,6 +58,24 @@ class BulkGradeController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Grades bulk updated successfully.',
+        ]);
+    }
+
+    /**
+     * Publish every qualifying grade of the offering for one period (midterm or final).
+     */
+    public function publish(PublishGradeRequest $request, CourseOffering $courseOffering)
+    {
+        $result = $this->publication->publishOffering(
+            $courseOffering,
+            $request->validated('period'),
+            $request->user(),
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Grades published successfully.',
+            'data' => $result,
         ]);
     }
 }

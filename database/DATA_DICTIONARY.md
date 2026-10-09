@@ -171,20 +171,25 @@ Reference table mapping a raw numeric score range to a normalized grade point. D
 
 ## `grades`
 
-A student's midterm and final results for one enrollment. Deliberately does *not* store `grade_point`/`remarks` directly — those come from the `grade_scales` row a grade is linked to, so a grade and its remarks can never drift out of sync with each other.
+A student's results for one enrollment. The instructor submits raw scores; the backend computes the equivalent grades, the final score (1/3 midterm + 2/3 finalterm) and the `remarks` (see `grades.md`). Midterm and final results are published independently (draft → published).
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint (PK) | no | — | |
 | `enrollment_id` | FK → `enrollments.id` | no | — | **Unique** (one grade record per enrollment), `cascadeOnDelete`. |
-| `midterm_raw_score` | decimal(5,2) | yes | null | Raw score as entered by the instructor. |
-| `midterm_grade_scale_id` | FK → `grade_scales.id` | yes | null | `restrictOnDelete`. The band `midterm_raw_score` was matched to; `null` until a score is submitted. |
-| `final_raw_score` | decimal(5,2) | yes | null | Same as `midterm_raw_score`, for the final period. |
-| `final_grade_scale_id` | FK → `grade_scales.id` | yes | null | `restrictOnDelete`. Same as `midterm_grade_scale_id`, for the final period. |
-| `status` | string (app-validated) | yes | null | Set (e.g. to `INCOMPLETE`) when a period couldn't be graded — i.e. when `midterm_grade_scale_id` or `final_grade_scale_id` is `null` despite the term having ended. Plain string rather than a DB enum, kept deliberately separate from `grade_scales.remarks` so the two vocabularies (grade classification vs. why a grade is missing) don't have to be kept in sync. |
-| `created_at`, `updated_at` | timestamp | yes | null | |
+| `midterm_raw_score` / `midterm_equivalent_grade` | decimal(5,2) / decimal(3,2) | yes | null | Raw score as entered, and the grade-scale equivalent computed from it. |
+| `finalterm_raw_score` / `finalterm_equivalent_grade` | decimal(5,2) / decimal(3,2) | yes | null | Same, for the final exam. |
+| `final_raw_score` / `final_equivalent_grade` | decimal(5,2) / decimal(3,2) | yes | null | Computed once midterm and finalterm both exist. |
+| `re_exam_raw_score` / `re_exam_equivalent_grade` | decimal(5,2) / decimal(3,2) | yes | null | Removal exam; only allowed when the final equivalent is exactly 4.0. |
+| `remarks` | string | yes | null | System-generated (Passed, Failed, Conditional, Incomplete, Withdrawn). |
+| `is_inc` / `inc_expiration_date` | boolean / date | no / yes | false / null | Incomplete flag and the deadline copied from the term. |
+| `midterm_status` | enum `draft`,`published` | no | `draft` | Publication state of the midterm result. Existing rows were backfilled as `published`. |
+| `midterm_published_at` | timestamp | yes | null | When the midterm result was published. |
+| `final_status` | enum `draft`,`published` | no | `draft` | Publication state of everything final: finalterm, final, re-exam, INC and remarks. |
+| `final_published_at` | timestamp | yes | null | When the final result was published. |
+| `created_at`, `updated_at`, `deleted_at` | timestamp | yes | null | Soft deletes. |
 
-**Note:** a period should never have both a `*_grade_scale_id` set *and* `status` describing why it's missing — that mutual exclusivity isn't enforced by the schema and needs to be a model/FormRequest rule.
+**Visibility:** only the offering's instructor and administrators see drafts; students and registrars only see published periods.
 
 ---
 

@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use Illuminate\Support\Facades\Gate;
 
 class AcademicRecordController extends Controller
 {
     public function show(Student $student)
     {
+        Gate::authorize('view', $student);
+
         $enrollments = $student->enrollments()
             ->with(['courseOffering.academicTerm', 'courseOffering.course', 'grade'])
             ->get();
@@ -22,12 +25,15 @@ class AcademicRecordController extends Controller
             return [
                 'academic_term' => $termName,
                 'enrollments' => $enrollments->map(function ($enr) {
+                    $finalGrade = $enr->grade?->isFinalPublished() ? $enr->grade : null;
+
                     return [
                         'course_code' => $enr->courseOffering->course->course_code,
                         'course_title' => $enr->courseOffering->course->course_title,
                         'units' => $enr->courseOffering->course->units,
-                        'final_equivalent_grade' => $enr->grade?->final_equivalent_grade,
-                        'remarks' => $enr->grade?->remarks ?? ($enr->status === 'dropped' ? 'Withdrawn' : 'Ongoing'),
+                        // the academic record is official: only published finals count
+                        'final_equivalent_grade' => $finalGrade?->final_equivalent_grade,
+                        'remarks' => $finalGrade?->remarks ?? ($enr->status === 'dropped' ? 'Withdrawn' : 'Ongoing'),
                     ];
                 }),
             ];

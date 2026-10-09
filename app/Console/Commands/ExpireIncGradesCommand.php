@@ -36,6 +36,9 @@ class ExpireIncGradesCommand extends Command
             $grade->is_inc = false;
             $grade->final_equivalent_grade = 5.0;
             $grade->remarks = 'Failed';
+            // the automatic failure is an official result
+            $grade->final_status = 'published';
+            $grade->final_published_at = $grade->final_published_at ?? now();
             $grade->save();
             $count++;
         }

@@ -13,7 +13,7 @@ class AcademicTermPolicy
             return true;
         }
 
-        if ($user->role === 'registrar' && $ability !== 'updateDeadlines') {
+        if ($user->role === 'registrar') {
             return true;
         }
 

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PublishGradeRequest;
 use App\Http\Requests\StoreGradeRequest;
 use App\Http\Requests\UpdateGradeRequest;
 use App\Http\Resources\GradeResource;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Services\GradeCalculatorService;
+use App\Services\GradePublicationService;
 use App\Traits\Sortable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -17,7 +19,10 @@ class GradeController extends Controller
 {
     use Sortable;
 
-    public function __construct(private GradeCalculatorService $gradeService) {}
+    public function __construct(
+        private GradeCalculatorService $gradeService,
+        private GradePublicationService $publication,
+    ) {}
 
     public function index(Request $request)
     {
@@ -26,6 +31,8 @@ class GradeController extends Controller
         $perPage = $request->query('per_page', 15);
 
         $query = Grade::query()
+            // drafts are private to the instructor and administrators
+            ->when($request->user()->role === 'registrar', fn ($q) => $q->anyPublished())
             ->when($request->query('search'), function ($query, $search) {
                 $query->whereHas('enrollment.student', function ($q) use ($search) {
                     $q->where('student_number', 'like', "%{$search}%");
@@ -52,7 +59,7 @@ class GradeController extends Controller
             abort(422, 'Cannot submit grades for inactive enrollments.');
         }
 
-        $this->checkDeadlines($enrollment->courseOffering->academicTerm, $data);
+        $this->publication->assertWithinDeadlines($enrollment->courseOffering->academicTerm, $data, $request->user());
 
         $grade = new Grade(['enrollment_id' => $enrollment->id]);
         // Set relation for service use
@@ -87,7 +94,8 @@ class GradeController extends Controller
             abort(422, 'Cannot update grades for inactive enrollments.');
         }
 
-        $this->checkDeadlines($grade->enrollment->courseOffering->academicTerm, $data);
+        $this->publication->assertEditable($grade, $data, $request->user());
+        $this->publication->assertWithinDeadlines($grade->enrollment->courseOffering->academicTerm, $data, $request->user(), $grade);
 
         $grade = $this->gradeService->computeGrade($grade, $data);
         $grade->save();
@@ -98,23 +106,23 @@ class GradeController extends Controller
         ]);
     }
 
+    /**
+     * Publish the midterm or final result of one grade so the student can see it.
+     */
+    public function publish(PublishGradeRequest $request, Grade $grade)
+    {
+        $grade = $this->publication->publish($grade, $request->validated('period'), $request->user());
+
+        return GradeResource::make($grade)->additional([
+            'success' => true,
+            'message' => 'Grade published successfully.',
+        ]);
+    }
+
     public function destroy(Grade $grade): Response
     {
         $grade->delete();
 
         return response()->noContent();
-    }
-
-    private function checkDeadlines($term, array $data): void
-    {
-        $now = now();
-
-        if (array_key_exists('midterm_raw_score', $data) && $term->midterm_grading_deadline && clone $now > clone $term->midterm_grading_deadline) {
-            abort(403, 'Midterm grading deadline has passed.');
-        }
-
-        if (array_key_exists('finalterm_raw_score', $data) && $term->final_grading_deadline && clone $now > clone $term->final_grading_deadline) {
-            abort(403, 'Final grading deadline has passed.');
-        }
     }
 }

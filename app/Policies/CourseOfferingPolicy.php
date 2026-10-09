@@ -13,11 +13,28 @@ class CourseOfferingPolicy
             return true;
         }
 
-        if ($user->role === 'registrar') {
+        // registrars manage offerings but do not encode grades
+        if ($user->role === 'registrar' && $ability !== 'encodeGrades') {
             return true;
         }
 
         return null;
+    }
+
+    /**
+     * Determine whether the user can see the students enrolled in the offering.
+     */
+    public function viewRoster(User $user, CourseOffering $courseOffering): bool
+    {
+        return $user->role === 'instructor' && $user->id === $courseOffering->instructor_id;
+    }
+
+    /**
+     * Determine whether the user can encode grades for the whole offering.
+     */
+    public function encodeGrades(User $user, CourseOffering $courseOffering): bool
+    {
+        return $user->role === 'instructor' && $user->id === $courseOffering->instructor_id;
     }
 
     /**

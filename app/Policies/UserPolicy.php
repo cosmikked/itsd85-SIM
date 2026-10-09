@@ -12,14 +12,6 @@ class UserPolicy
             return true;
         }
 
-        if ($user->role === 'registrar') {
-            if ($this instanceof UserPolicy || $this instanceof GradePolicy) {
-                return null;
-            }
-
-            return true;
-        }
-
         return null;
     }
 

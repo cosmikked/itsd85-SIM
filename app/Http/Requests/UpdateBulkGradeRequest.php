@@ -5,13 +5,14 @@ namespace App\Http\Requests;
 use App\Models\Grade;
 use App\Models\GradeScale;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
 
 class UpdateBulkGradeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return Gate::allows('encodeGrades', $this->route('course_offering'));
     }
 
     public function rules(): array

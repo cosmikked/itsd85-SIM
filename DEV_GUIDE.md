@@ -699,7 +699,7 @@ Once Programs is fully green, bring `login` and `me` in line with 4.1 so the who
 - [x] **Students:** `StudentApiTest` passes in full — 37 cases, incl. invalid email, nonexistent `program_id`, duplicate `student_number`/`email`/`contact_number` (each `422`)
 - [x] Deleting a still-referenced record returns `409` — never `500` — for all four resources
 - [x] Collection endpoints are paginated (no unbounded `->get()`), with a test that proves it
-- [ ] Phase 3 retrofit done (4.6): `login` and `me` use the envelope, and `AuthenticationTest` #2 and #4 are updated — **not done, see follow-ups below**
+- [x] Phase 3 retrofit done (4.6): `login` and `me` use the envelope, and `AuthenticationTest` #2 and #4 are updated *(done 2026-10-09 — see "Auth rebuild" below)*
 - [x] `php artisan test` green; `vendor/bin/pint --dirty --format agent` clean on every file touched this phase
 
 **Verified 2026-09-23:** `php artisan test` passes (145 tests / 550 assertions) — the previous 108 (Phases 1–3 + Programs/Courses/Academic Terms) plus 37 new `StudentApiTest` cases. `php artisan route:list --path=v1` shows 18 routes: 3 auth + 5 each for `programs`, `courses`, `academic-terms`, `students`, all four resource groups behind `auth:sanctum`. The checkpoint ("CRUD requests work with validation") is met for all four resources. Phase 4 is done — commit this work when you're ready.
@@ -711,6 +711,22 @@ Once Programs is fully green, bring `login` and `me` in line with 4.1 so the who
 > 4. The two unchecked Phase 2 constraint tests (`student_number` uniqueness, duplicate enrollment) are still open — see the Phase 2 note above. Still not a blocker, but circle back before Phase 9.
 
 Come back once you're ready and I'll expand **Phase 5 — Academic Transactions** — Course Offerings, Enrollments, Grades and the Academic Record, where the cross-table rules (capacity, duplicate enrollment, grade ranges) live.
+
+### Auth rebuild (2026-10-09): Sanctum tokens only, Fortify removed
+
+Commit `ea3dd0a` swapped the Phase 3 `AuthController` for Laravel Fortify. Fortify's login is session/cookie-based and issues no token, so `/auth/me` returned 404 and API clients (Postman, curl, future mobile/desktop apps) could not authenticate. Fortify was removed again (package, provider, `app/Actions/Fortify`, `config/fortify.php`, and the 2FA/passkeys migrations) and the token flow restored (spec §8.1, §12.1). Re-run `php artisan migrate:fresh --seed` on any existing dev database.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `POST /api/v1/auth/login` | public, throttled | `{success, message, data: {token}}`. Unknown email, wrong password and inactive account all return the same `422` message. |
+| `POST /api/v1/auth/logout` | token | Deletes the current token, `204`. |
+| `GET /api/v1/auth/me` | token | Current user via `UserResource`, in the envelope. |
+| `PATCH /api/v1/auth/me` | token | Own `name` / `email` only (role, status, password are ignored). A student's email is kept in sync on `students.email`. |
+| `POST /api/v1/auth/forgot-password` | public, throttled | Always `200` with the same message, whether or not the email exists. Mail uses `MAIL_MAILER=log`, so the link is in `storage/logs/laravel.log`. |
+| `POST /api/v1/auth/reset-password` | public, throttled | `token`, `email`, `password`, `password_confirmation`. Single-use token; all the user's API tokens are revoked on success. |
+
+Tests: `AuthenticationTest` (login/logout/me) and `AccountApiTest` (profile, forgot, reset).
+
 ---
 
 ## Phase 5 — Academic Transactions
@@ -781,3 +797,94 @@ This phase handles the core transactions of the school: scheduling classes (Cour
 - [x] `Academic Record` endpoint aggregates data grouped by term, tested with a multi-term student
 - [x] `php artisan test` is green; `vendor/bin/pint --dirty --format agent` is clean
 
+---
+
+## Phase 7 — Authorization
+
+**Checkpoint (spec §19):** Unauthorized roles receive 403 or equivalent.
+
+This phase introduces role-based access control (RBAC) and object-level authorization across the entire API, built using Laravel Policies. You'll also modify the `students` table to establish a hard link to the `users` table, ensuring strict identity verification.
+
+### 7.1 Schema Changes & The Onboarding Flow
+
+**Decision:** The `students` table requires a non-nullable `user_id` foreign key. A student cannot exist without a user account.
+
+To enforce this while maintaining a strict REST design (Option 1 from our discussion):
+1. Modify the original `create_students_table` migration to add `user_id` (`constrained()->cascadeOnDelete()`) and run `php artisan migrate:fresh --seed`.
+2. Update `StudentFactory`: it should automatically create a `User` with the `student` role and assign its ID.
+3. Update the `POST /api/v1/students` endpoint: it will now create a `User` (role: student) behind the scenes using the provided email, and then create the `Student` record. This keeps the onboarding process simple for Registrars.
+
+### 7.2 Access Control Rules
+
+We'll use **Laravel Policies** (e.g., `StudentPolicy`, `GradePolicy`) registered to models to enforce access rules.
+
+**Final enforced matrix (updated 2026-10-09)** — this is what the policies and `AuthorizationApiTest` implement:
+
+| Resource / action | Admin | Registrar | Instructor | Student |
+|---|---|---|---|---|
+| Users CRUD | yes | no | no | no |
+| Programs, Courses, Academic terms CRUD | yes | yes | no | no |
+| Grading deadlines (`PATCH academic-terms/{id}/grading-deadlines`) | yes | yes | no | no |
+| Students CRUD | yes | yes | no | own profile `GET` only |
+| `GET /students/{id}/enrollments`, `/grades`, `/academic-record` | any | any | no | own only |
+| Course offerings | CRUD | CRUD | list/view own (list is filtered) | view only offerings they are enrolled in |
+| `GET /course-offerings/{id}/students` (roster) | any | any | own offering only | no |
+| Enrollments create / update / delete | yes | yes | no | no |
+| `GET /enrollments/{id}` | any | any | enrollment in own offering | own only |
+| `GET /enrollments` (list) | yes | yes | no | no |
+| Grades: list | yes | yes | no | no |
+| Grades: view one | any (incl. drafts) | published only | own offering's (incl. drafts) | own, published only |
+| Grades: create (`POST /grades`, starts as a draft) | yes | no | own offering only | no |
+| Grades: edit (`PUT/PATCH /grades/{id}`) | yes, always | no | own offering, **only while the period is a draft** (+ re-exam / INC completion exceptions) | no |
+| Bulk save (`PUT course-offerings/{id}/grades`, same lock per row) | yes | no | own offering only | no |
+| Publish a grade (`POST /grades/{id}/publish`) | yes | no | own offering only | no |
+| Publish an offering (`POST course-offerings/{id}/grades/publish`) | yes | no | own offering only | no |
+
+**Grade draft/publish workflow (2026-10-09):** `grades` has `midterm_status` and `final_status` (`draft`|`published`) with `*_published_at`. Instructors edit drafts freely; publishing a period makes it visible to the student and locks it for the instructor. Only administrators can then change it (and administrators are exempt from the grading deadlines). Two exceptions stay open to the instructor after publishing: a one-time re-exam score on a published Conditional (4.0) grade, and completing a published INC grade (against `inc_completion_deadline`). Logic lives in `app/Services/GradePublicationService.php`; field masking for students/registrars in `GradeResource`.
+
+Design choices behind it: students are `403` on the catalogs (they see only their own records); enrollment is staff-only; the registrar is view-only on grades (separation of duties: the person who enrolls students does not grade them); an instructor can only reach data tied to their own offerings. Nested routes (`/students/{id}/...`, `/course-offerings/{id}/students`) and bulk grading are authorized with `Gate::authorize` / the form request's `authorize()`; `CourseOfferingPolicy` has dedicated `viewRoster` and `encodeGrades` abilities.
+
+Original summary from planning:
+
+| Role | Permissions |
+|---|---|
+| **Administrator** | Full access to everything. Can manage users, roles, and all academic resources. |
+| **Registrar / Staff** | Can perform all CRUD operations on academic data (programs, courses, terms, students, offerings, enrollments, grades). **Cannot** manage Users/Roles. |
+| **Instructor** | **Read:** Can view *only* course offerings where they are the assigned `instructor_id` (enforce this via a query filter in the controller).<br>**Write:** Can encode/modify grades *only* for their assigned course offerings. |
+| **Student** | **Read:** Can view *only* their own profile, their own enrollments, and their own grades. (Object-level authorization: `$user->id === $student->user_id`).<br>Strictly forbidden (`403`) from accessing public catalogs (`/programs`, `/courses`, `/course-offerings`, etc.). |
+
+### 7.3 TDD Sequence
+
+For each resource, you'll need to update or create tests to prove the 403 behavior.
+
+1. **Student Access Test:**
+   - Authenticate as a Student.
+   - Assert `GET /api/v1/students/{own_id}` returns `200 OK`.
+   - Assert `GET /api/v1/students/{other_id}` returns `403 Forbidden` (or 404 depending on how you scope).
+   - Assert `GET /api/v1/programs` returns `403 Forbidden`.
+2. **Instructor Access Test:**
+   - Authenticate as an Instructor.
+   - Assert `GET /api/v1/course-offerings` returns only their assigned offerings.
+   - Assert `POST /api/v1/grades` succeeds for an enrollment in their offering.
+   - Assert `POST /api/v1/grades` returns `403 Forbidden` for an enrollment in another instructor's offering.
+3. **Registrar Access Test:**
+   - Authenticate as a Registrar.
+   - Assert they can create an enrollment (`201`).
+   - If you have user management endpoints, assert they get `403` when trying to create a User.
+
+### 7.4 What to Build (Guidance)
+
+- `php artisan make:migration add_user_id_to_students_table`
+- `php artisan make:policy StudentPolicy --model=Student`
+- Register policies in `AuthServiceProvider` (if not auto-discovered) and authorize requests inside the Controller methods using `$this->authorize('view', $student)` or inside Form Requests (`authorize()` method).
+- For `CourseOfferingController@index`, check if `$request->user()->role === 'instructor'` and apply a `where('instructor_id', ...)` filter to the query builder before paginating.
+
+### Phase 7 checklist
+
+- [x] `user_id` added to `students` (folded into the original `create_students_table` migration).
+- [x] `StudentFactory` updated to provision a `User`.
+- [x] `POST /api/v1/students` creates a User account automatically.
+- [x] Policies created for all core resources.
+- [x] Instructors can only view and manage grades for their own course offerings (including roster and bulk grading, 2026-10-09).
+- [x] Students get `403` on catalogs, and can only access their own profile and records (including the nested `/students/{id}/*` routes, 2026-10-09).
+- [x] All updated tests pass — `AuthorizationApiTest` has 36 cases; the only failing tests in the suite are the 7 `*_sort_results_by_multiple_columns` tests, which authenticate as a role-less user.

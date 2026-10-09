@@ -37,6 +37,10 @@ class EnrollmentPolicy
             return $enrollment->student->user_id === $user->id;
         }
 
+        if ($user->role === 'instructor') {
+            return $enrollment->courseOffering->instructor_id === $user->id;
+        }
+
         return false;
     }
 

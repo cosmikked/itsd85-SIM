@@ -22,7 +22,7 @@ class GradeSeeder extends Seeder
         foreach ($enrollments as $index => $enrollment) {
             if ($enrollment->status === 'dropped') {
                 // Dropped enrollments get a Dropped grade record
-                Grade::factory()->create([
+                Grade::factory()->published()->create([
                     'enrollment_id' => $enrollment->id,
                     'remarks' => 'Dropped',
                 ]);
@@ -35,7 +35,7 @@ class GradeSeeder extends Seeder
                 $enrollment->loadMissing('courseOffering.academicTerm');
                 $term = $enrollment->courseOffering->academicTerm;
 
-                Grade::factory()->create([
+                Grade::factory()->published()->create([
                     'enrollment_id' => $enrollment->id,
                     'is_inc' => true,
                     'inc_expiration_date' => $term->inc_completion_deadline,
@@ -59,7 +59,14 @@ class GradeSeeder extends Seeder
                 $remarks = 'Conditional';
             }
 
-            Grade::factory()->create([
+            $factory = Grade::factory();
+
+            // leave every 7th ordinary grade as an instructor draft for demos
+            if ($index % 7 !== 3) {
+                $factory = $factory->published();
+            }
+
+            $factory->create([
                 'enrollment_id' => $enrollment->id,
                 'midterm_raw_score' => $midtermRawScore,
                 'midterm_equivalent_grade' => $midtermScale?->grade_point,

@@ -2,6 +2,13 @@
 
 This document outlines the core business logic and rules implemented in the SIM REST API. It is organized by domain and links to the specific files where the rules are enforced.
 
+## 0. Roles & Access
+Four fixed roles (`users.role`): `administrator`, `registrar`, `instructor`, `student`. Access is enforced server-side by the policies in `app/Policies` (called via `Gate::authorize` in controllers and `Gate::allows` in form requests). The full per-endpoint matrix is in `DEV_GUIDE.md` (Phase 7, 7.2).
+* **Staff roles:** administrators and registrars manage academic data (programs, courses, terms, grading deadlines, students, offerings, enrollments). Only administrators manage users.
+* **Separation of duties:** registrars can view grades but cannot create or change them. Only the instructor of an offering (or an administrator) encodes grades.
+* **Ownership:** an instructor only reaches their own course offerings (list, roster, enrollments, grading). A student only reaches their own profile, enrollments, grades and academic record, and is forbidden from the catalogs.
+  * Enforced in: `app/Policies/*`, `app/Http/Controllers/{StudentEnrollment,StudentGrade,AcademicRecord,CourseOfferingStudent}Controller.php`, `app/Http/Requests/UpdateBulkGradeRequest.php`
+
 ## 1. Academic Terms
 * **Consecutive Academic Years:** The academic year must be formatted as `YYYY-YYYY` with strictly consecutive years (e.g., `2024-2025`).
   * Enforced in: `app/Rules/ConsecutiveAcademicYear.php`, `app/Http/Requests/StoreAcademicTermRequest.php`, `app/Http/Requests/UpdateAcademicTermRequest.php`
@@ -46,6 +53,11 @@ To maintain referential integrity and historical records, the system prevents th
 * **Enrollments** cannot be hard-deleted if their status is `completed`, protecting finalized academic records. (`app/Http/Controllers/EnrollmentController.php`)
 
 ## 6. Grades & Academic Records
+* **Draft → Published Workflow:** Instructors create and edit grades as *drafts*; midterm and final results are published independently (`midterm_status` / `final_status`). Drafts are visible only to the offering's instructor and administrators. Publishing a period makes it visible to the student and **locks it for the instructor**; only an administrator can then change it. Publishing is lenient: a bulk publish releases every grade that has the needed scores and reports the rest as `skipped`. Instructors are bound by the grading deadlines when saving *and* publishing; administrators are exempt.
+  * Post-publication exceptions for the instructor: a one-time `re_exam_raw_score` on a published Conditional (4.0) grade, and completing a published Incomplete grade (checked against `inc_completion_deadline`).
+  * System-written results (withdrawal on drop, automatic INC failure) are published immediately.
+  * The academic record only reflects published final results (otherwise `Ongoing`).
+  * Enforced in: `app/Services/GradePublicationService.php`, `app/Policies/GradePolicy.php`, `app/Http/Resources/GradeResource.php`, `app/Http/Controllers/{Grade,BulkGrade,StudentGrade,AcademicRecord}Controller.php`
 * **Strict Grading Windows:** Instructors can only submit or update grades before the deadline defined on the associated Academic Term (`midterm_grading_deadline`, `final_grading_deadline`).
   * Enforced in: `app/Http/Requests/UpdateSingleGradeRequest.php`, `app/Http/Requests/UpdateBulkGradeRequest.php`
 * **Automated Computations & Remarks:** Final grades are computed automatically using a strict formula (1/3 Midterm + 2/3 Finalterm). Remarks (Passed, Failed, Incomplete, Removal) are completely system-generated based on these values to prevent manual tampering or typos.

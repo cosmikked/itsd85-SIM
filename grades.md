@@ -7,6 +7,16 @@ This document summarizes the agreed-upon business rules, logic, and implementati
 - **Authorization**: Only the assigned instructor (`instructor_id` on the `CourseOffering`) and system Admins can update grades.
 - **Bulk Upload**: Bulk submissions are transactional. If one grade fails validation, the entire request is rejected (422) and no grades are saved.
 
+## 1a. Draft & Publish Workflow
+- **Statuses**: `grades.midterm_status` and `grades.final_status` are `draft` or `published`, with `midterm_published_at` / `final_published_at`. The final status covers the finalterm score, final grade, re-exam, INC and remarks.
+- **Drafts**: the instructor saves scores through `POST /grades`, `PATCH /grades/{id}` or the bulk `PUT /course-offerings/{id}/grades`. Drafts are visible only to that instructor and to admins.
+- **Publishing**: `POST /grades/{id}/publish` and `POST /course-offerings/{id}/grades/publish` with `period` = `midterm` or `final`. A midterm needs `midterm_raw_score`; a final needs the finalterm score (or `is_inc`) plus the midterm score. The bulk call publishes what qualifies and reports `published` / `skipped`.
+- **Lock**: once a period is published the instructor can no longer change it (`403`); only an admin can. Resending an unchanged value is allowed.
+- **Exceptions for the instructor after publishing**: a one-time `re_exam_raw_score` on a published Conditional (4.0) grade, and completing a published INC grade (checked against `inc_completion_deadline`).
+- **Deadlines**: instructors are bound by the midterm/final deadlines when saving and publishing; admins are exempt.
+- **Visibility**: students (own) and registrars only see published periods, and unpublished fields are absent from the JSON. The academic record shows published finals only (otherwise `Ongoing`).
+- **System results** (withdrawal on drop, automatic INC failure) are written as published.
+
 ## 2. Enrollment Status & Dropping
 - **Active Only**: Grades can only be submitted for `Enrollment`s with an 'enrolled' or 'active' status.
 - **Automatic Handling**: When an enrollment status changes to 'dropped' or 'withdrawn' (e.g., via an event/observer), the system automatically clears the raw scores.

@@ -14,14 +14,6 @@ class GradePolicy
             return true;
         }
 
-        if ($user->role === 'registrar') {
-            if ($this instanceof UserPolicy || $this instanceof GradePolicy) {
-                return null;
-            }
-
-            return true;
-        }
-
         return null;
     }
 
@@ -34,23 +26,20 @@ class GradePolicy
     }
 
     /**
-     * Determine whether the user can view the model.
+     * Drafts are private to the offering's instructor and administrators;
+     * students and registrars only see grades with a published period.
      */
     public function view(User $user, Grade $grade): bool
     {
         if ($user->role === 'registrar') {
-            return true;
+            return $grade->isAnyPublished();
         }
 
         if ($user->role === 'student') {
-            return $grade->enrollment->student->user_id === $user->id;
+            return $grade->isAnyPublished() && $grade->enrollment->student->user_id === $user->id;
         }
 
-        if ($user->role === 'instructor') {
-            return $user->id === $grade->enrollment->courseOffering->instructor_id;
-        }
-
-        return false;
+        return $this->isInstructorOf($user, $grade);
     }
 
     /**
@@ -66,11 +55,19 @@ class GradePolicy
     }
 
     /**
-     * Determine whether the user can update the model.
+     * The instructor edits drafts; GradePublicationService locks published parts.
      */
     public function update(User $user, Grade $grade): bool
     {
-        return false;
+        return $this->isInstructorOf($user, $grade);
+    }
+
+    /**
+     * Determine whether the user can publish the grade.
+     */
+    public function publish(User $user, Grade $grade): bool
+    {
+        return $this->isInstructorOf($user, $grade);
     }
 
     /**
@@ -95,5 +92,11 @@ class GradePolicy
     public function forceDelete(User $user, Grade $grade): bool
     {
         return false;
+    }
+
+    private function isInstructorOf(User $user, Grade $grade): bool
+    {
+        return $user->role === 'instructor'
+            && $user->id === $grade->enrollment->courseOffering->instructor_id;
     }
 }

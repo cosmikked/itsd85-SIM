@@ -44,13 +44,13 @@ class AcademicRecordApiTest extends TestCase
         $enrollment1 = Enrollment::factory()->create(['student_id' => $student->id, 'course_offering_id' => $offering1->id]);
         $enrollment2 = Enrollment::factory()->create(['student_id' => $student->id, 'course_offering_id' => $offering2->id]);
 
-        Grade::factory()->create([
+        Grade::factory()->published()->create([
             'enrollment_id' => $enrollment1->id,
             'final_equivalent_grade' => 1.25,
             'remarks' => 'Passed',
         ]);
 
-        Grade::factory()->create([
+        Grade::factory()->published()->create([
             'enrollment_id' => $enrollment2->id,
             'final_equivalent_grade' => 2.50,
             'remarks' => 'Passed',

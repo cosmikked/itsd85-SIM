@@ -49,8 +49,13 @@ Route::prefix('/v1')->group(function () {
 
     // Grading
     Route::apiResource('grades', GradeController::class)->middleware('auth:sanctum');
+    Route::post('grades/{grade}/publish', [GradeController::class, 'publish'])
+        ->name('grades.publish')
+        ->middleware('auth:sanctum');
     Route::put('course-offerings/{course_offering}/grades', [BulkGradeController::class, 'update'])->middleware('auth:sanctum');
-
+    Route::post('course-offerings/{course_offering}/grades/publish', [BulkGradeController::class, 'publish'])
+        ->name('course-offerings.grades.publish')
+        ->middleware('auth:sanctum');
 
     // Nested Student Routes
     Route::get('students/{student}/grades', [StudentGradeController::class, 'index'])->middleware('auth:sanctum');
