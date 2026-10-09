@@ -6,25 +6,20 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    use AuthorizesRequests;
-
-    public function __construct()
-    {
-        $this->authorizeResource(User::class, 'user');
-    }
-
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
+        Gate::authorize('viewAny', User::class);
+
         $perPage = $request->query('per_page', 15);
         $users = User::paginate($perPage);
 
@@ -54,6 +49,8 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
+        Gate::authorize('view', $user);
+
         return UserResource::make($user)->additional([
             'success' => true,
             'message' => 'User retrieved successfully.',
@@ -82,6 +79,8 @@ class UserController extends Controller
      */
     public function destroy(User $user): Response
     {
+        Gate::authorize('delete', $user);
+
         $user->update(['status' => 'inactive']);
 
         return response()->noContent();
