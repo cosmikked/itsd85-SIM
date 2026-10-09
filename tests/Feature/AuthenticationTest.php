@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -138,5 +139,52 @@ class AuthenticationTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/auth/me')
             ->assertUnauthorized();
+    }
+
+    public function test_me_includes_the_student_id_for_a_student_account(): void
+    {
+        $student = Student::factory()->create();
+        $token = User::find($student->user_id)->createToken('test-token')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.role', 'student')
+            ->assertJsonPath('data.student_id', $student->id);
+    }
+
+    public function test_me_has_a_null_student_id_for_a_student_account_without_a_student_record(): void
+    {
+        $token = User::factory()->student()->create()->createToken('test-token')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.student_id', null)
+            ->assertJsonStructure(['data' => ['student_id']]);
+    }
+
+    public function test_me_has_no_student_id_for_staff_and_instructors(): void
+    {
+        foreach ([User::factory()->administrator()->create(), User::factory()->registrar()->create(), User::factory()->instructor()->create()] as $user) {
+            $token = $user->createToken('test-token')->plainTextToken;
+
+            $this->withHeader('Authorization', "Bearer {$token}")
+                ->getJson('/api/v1/auth/me')
+                ->assertOk()
+                ->assertJsonMissingPath('data.student_id');
+        }
+    }
+
+    public function test_updating_the_profile_of_a_student_also_returns_the_student_id(): void
+    {
+        $student = Student::factory()->create();
+        $token = User::find($student->user_id)->createToken('test-token')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson('/api/v1/auth/me', ['name' => 'Renamed Student'])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Renamed Student')
+            ->assertJsonPath('data.student_id', $student->id);
     }
 }

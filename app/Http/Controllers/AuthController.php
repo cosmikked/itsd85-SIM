@@ -45,7 +45,7 @@ class AuthController extends Controller
 
     public function me(Request $request): UserResource
     {
-        return UserResource::make($request->user())->additional([
+        return UserResource::make($this->withStudentId($request->user()))->additional([
             'success' => true,
             'message' => 'Current user retrieved successfully.',
         ]);
@@ -65,9 +65,21 @@ class AuthController extends Controller
             }
         });
 
-        return UserResource::make($user->refresh())->additional([
+        return UserResource::make($this->withStudentId($user->refresh()))->additional([
             'success' => true,
             'message' => 'Profile updated successfully.',
         ]);
+    }
+
+    /**
+     * Student clients need their student record id for every self-service route.
+     */
+    private function withStudentId(User $user): User
+    {
+        if ($user->role === 'student') {
+            $user->loadMissing('student');
+        }
+
+        return $user;
     }
 }

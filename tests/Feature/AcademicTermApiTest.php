@@ -178,6 +178,36 @@ class AcademicTermApiTest extends TestCase
             ->assertJsonPath('data.end_date', '2026-12-18');
     }
 
+    public function test_term_responses_include_the_grading_deadlines(): void
+    {
+        $this->actingAsAdministrator();
+        $term = AcademicTerm::factory()->create([
+            'midterm_grading_deadline' => null,
+            'final_grading_deadline' => null,
+            'inc_completion_deadline' => null,
+        ]);
+
+        $this->getJson("/api/v1/academic-terms/{$term->id}")
+            ->assertOk()
+            ->assertJsonPath('data.midterm_grading_deadline', null)
+            ->assertJsonPath('data.final_grading_deadline', null)
+            ->assertJsonPath('data.inc_completion_deadline', null);
+
+        $update = $this->patchJson("/api/v1/academic-terms/{$term->id}/grading-deadlines", [
+            'midterm_grading_deadline' => '2030-10-01 12:00:00',
+            'final_grading_deadline' => '2030-12-01 12:00:00',
+            'inc_completion_deadline' => '2031-01-15',
+        ])->assertOk();
+
+        $update->assertJsonPath('data.inc_completion_deadline', '2031-01-15');
+        $this->assertStringStartsWith('2030-10-01', $update->json('data.midterm_grading_deadline'));
+        $this->assertStringStartsWith('2030-12-01', $update->json('data.final_grading_deadline'));
+
+        $this->getJson('/api/v1/academic-terms')
+            ->assertOk()
+            ->assertJsonPath('data.0.inc_completion_deadline', '2031-01-15');
+    }
+
     public function test_show_returns_404_for_an_unknown_academic_term(): void
     {
         $this->actingAsAdministrator();
@@ -516,4 +546,3 @@ class AcademicTermApiTest extends TestCase
         $this->assertEquals('Second Semester', (string) $items[2]['term']);
     }
 }
-

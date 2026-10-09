@@ -6,11 +6,14 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BulkGradeController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CourseOfferingController;
+use App\Http\Controllers\CourseOfferingEnrollmentController;
 use App\Http\Controllers\CourseOfferingStudentController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\GradeController;
+use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProgramController;
+use App\Http\Controllers\RoomController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentEnrollmentController;
 use App\Http\Controllers\StudentGradeController;
@@ -37,6 +40,10 @@ Route::prefix('/v1')->group(function () {
     });
 
     Route::apiResource('users', UserController::class)->middleware('auth:sanctum');
+    Route::get('instructors', [InstructorController::class, 'index'])
+        ->name('instructors.index')
+        ->middleware('auth:sanctum');
+    Route::apiResource('rooms', RoomController::class)->only(['index', 'show'])->middleware('auth:sanctum');
     Route::apiResource('programs', ProgramController::class)->middleware('auth:sanctum');
     Route::apiResource('courses', CourseController::class)->middleware('auth:sanctum');
     Route::apiResource('academic-terms', AcademicTermController::class)->middleware('auth:sanctum');
@@ -64,5 +71,8 @@ Route::prefix('/v1')->group(function () {
 
     // Nested Course Offering Routes
     Route::get('course-offerings/{course_offering}/students', [CourseOfferingStudentController::class, 'index'])->middleware('auth:sanctum');
+    Route::get('course-offerings/{course_offering}/enrollments', [CourseOfferingEnrollmentController::class, 'index'])
+        ->name('course-offerings.enrollments.index')
+        ->middleware('auth:sanctum');
 
 });

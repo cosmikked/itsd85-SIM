@@ -823,6 +823,8 @@ We'll use **Laravel Policies** (e.g., `StudentPolicy`, `GradePolicy`) registered
 | Resource / action | Admin | Registrar | Instructor | Student |
 |---|---|---|---|---|
 | Users CRUD | yes | no | no | no |
+| Lookups: `GET /rooms`, `GET /instructors` (read-only) | yes | yes | no | no |
+| `GET /course-offerings/{id}/enrollments` (roster with students + grades) | any (incl. drafts) | any (published grades only) | own offering (incl. drafts) | no |
 | Programs, Courses, Academic terms CRUD | yes | yes | no | no |
 | Grading deadlines (`PATCH academic-terms/{id}/grading-deadlines`) | yes | yes | no | no |
 | Students CRUD | yes | yes | no | own profile `GET` only |

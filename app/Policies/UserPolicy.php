@@ -16,6 +16,15 @@ class UserPolicy
     }
 
     /**
+     * Staff may look up instructors (to assign them to course offerings)
+     * without being able to manage user accounts.
+     */
+    public function viewInstructors(User $user): bool
+    {
+        return $user->role === 'registrar';
+    }
+
+    /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool

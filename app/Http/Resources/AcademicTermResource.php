@@ -21,6 +21,9 @@ class AcademicTermResource extends JsonResource
             'start_date' => $this->start_date->toDateString(),
             'end_date' => $this->end_date->toDateString(),
             'status' => $this->status,
+            'midterm_grading_deadline' => $this->midterm_grading_deadline,
+            'final_grading_deadline' => $this->final_grading_deadline,
+            'inc_completion_deadline' => $this->inc_completion_deadline?->toDateString(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

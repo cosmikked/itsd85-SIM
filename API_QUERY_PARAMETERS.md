@@ -65,6 +65,18 @@ The following parameters are standard for paginated resource endpoints. Note tha
   - `is_inc`: Filter by incomplete status (`true` or `false`).
   - `enrollment_id`: Filter by the specific enrollment record.
 
+### 9. Rooms (`/api/v1/rooms`) — read-only lookup, admin and registrar
+- **Search (`?search=`)**: Searches `code` and `building`.
+- **Filters**:
+  - `building`: Filter by exact building name.
+- Only `GET /rooms` and `GET /rooms/{room}` exist.
+
+### 10. Instructors (`/api/v1/instructors`) — read-only lookup, admin and registrar
+- Returns instructor accounts only, with `id`, `name`, `email`, `status`. (`/users` stays administrator-only.)
+- **Search (`?search=`)**: Searches `name` and `email`.
+- **Filters**:
+  - `status`: `active` or `inactive`.
+
 ---
 
 ## Nested Resource Endpoints
@@ -78,6 +90,7 @@ These endpoints provide contextual data based on relationships. They support sta
 
 ### 2. Course Offering Relationships
 - **`GET /api/v1/course-offerings/{course_offering}/students`**: Returns a paginated list of students enrolled in the offering. Supports `page` and `per_page`.
+- **`GET /api/v1/course-offerings/{course_offering}/enrollments`**: The grading-sheet roster. Every enrollment of the offering (all statuses) with a `student` summary and the `grade` (drafts are only visible to the instructor and administrators; the registrar gets `grade: null` until a period is published). Supports `search` (student number, first/last name), `status`, `sort`, `page`, `per_page`.
 - **`PUT /api/v1/course-offerings/{course_offering}/grades`**: Bulk grade update, saves drafts (action endpoint, not queried).
 - **`POST /api/v1/course-offerings/{course_offering}/grades/publish`**: Publishes every qualifying grade of the offering for `period` (`midterm` or `final`). Returns `data: {period, published, skipped}`.
 

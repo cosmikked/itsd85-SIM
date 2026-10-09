@@ -5,10 +5,10 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class UserResource extends JsonResource
+class InstructorResource extends JsonResource
 {
     /**
-     * Transform the resource into an array.
+     * Only what a staff member needs to pick an instructor for a course offering.
      *
      * @return array<string, mixed>
      */
@@ -18,12 +18,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'role' => $this->role,
             'status' => $this->status,
-            // only loaded for student accounts on /auth/me (null = no student record yet)
-            'student_id' => $this->whenLoaded('student', fn () => $this->student?->id),
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
         ];
     }
 }
