@@ -41,12 +41,12 @@ class NoScheduleConflict implements ValidationRule
 
                 if ($this->timesOverlap($s1['start_time'], $s1['end_time'], $s2['start_time'], $s2['end_time'])) {
                     if ($s1['room_id'] == $s2['room_id']) {
-                        $fail('The schedules array contains internal room conflicts.');
+                        $fail('The schedules array contains room conflicts.');
 
                         return;
                     }
                     // Instructor is the same for the whole offering, so any overlap is an instructor conflict
-                    $fail('The schedules array contains internal instructor conflicts.');
+                    $fail('The schedules array contains instructor conflicts.');
 
                     return;
                 }
@@ -77,7 +77,7 @@ class NoScheduleConflict implements ValidationRule
 
             foreach ($conflicts as $conflict) {
                 if ($conflict->room_id == $schedule['room_id']) {
-                    $fail("Room {$schedule['room_id']} is already booked during this time.");
+                    $fail("Room {$schedule['room_id']} is already occupied during this time.");
 
                     return;
                 }

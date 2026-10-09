@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\AcademicTerm;
+use App\Models\CourseOffering;
 use App\Rules\NoScheduleConflict;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -17,7 +18,7 @@ class StoreCourseOfferingRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return Gate::allows('create', App\Models\CourseOffering::class);
+        return Gate::allows('create', CourseOffering::class);
     }
 
     /**
